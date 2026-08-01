@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark Theme (Default) */
+    --bg: #0a0a0a;
+    --surface: #121212;
+    --surface-light: #1e1e1e;
+    --primary: #00f2fe;
+    --secondary: #4facfe;
+    --accent: #9d4edd;
+    --neon-green: #39ff14;
+    --glass: rgba(255, 255, 255, 0.05);
+    --text-main: #ffffff;
+    --text-muted: #9ca3af;
+    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --shadow-neon-primary: 0 0 10px rgba(0, 242, 254, 0.5), 0 0 20px rgba(0, 242, 254, 0.3);
+    --shadow-neon-accent: 0 0 10px rgba(157, 78, 221, 0.5), 0 0 20px rgba(157, 78, 221, 0.3);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    color-scheme: dark;
+  }
+
+  .light {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-light: #f1f5f9;
+    --primary: #0284c7;
+    --secondary: #0ea5e9;
+    --accent: #7e22ce;
+    --neon-green: #16a34a;
+    --glass: rgba(0, 0, 0, 0.03);
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+    --shadow-neon-primary: 0 4px 15px rgba(2, 132, 199, 0.2);
+    --shadow-neon-accent: 0 4px 15px rgba(126, 34, 206, 0.2);
+    --glass-border: rgba(0, 0, 0, 0.1);
+  }
+
+  body {
+    @apply bg-background font-sans antialiased min-h-screen overflow-x-hidden transition-colors duration-300;
+    color: var(--text-main);
+  }
+
+  input[type="date"], 
+  input[type="time"] {
+    color-scheme: dark;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface backdrop-blur-xl border-l border-t border-glass shadow-glass rounded-2xl;
+  }
+
+  /* Custom Scrollbar for massive lists */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    @apply rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary opacity-50;
+  }
+}

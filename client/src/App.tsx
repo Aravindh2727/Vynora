@@ -76,8 +76,8 @@ function App() {
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser({ id: firebaseUser.uid, name: firebaseUser.displayName || 'Google User', email: firebaseUser.email || '' });
+      if (firebaseUser && firebaseUser.emailVerified) {
+        setUser({ id: firebaseUser.uid, name: firebaseUser.displayName || 'User', email: firebaseUser.email || '' });
       } else {
         setUser(null);
       }

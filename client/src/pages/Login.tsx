@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { motion } from 'framer-motion';
 import { Sparkles, Mail, Lock, LogIn } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, getAdditionalUserInfo, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 
 import { useContextEngineStore } from '../store/useContextEngineStore';
@@ -20,28 +20,65 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function Login() {
   const navigate = useNavigate();
   const { setUser } = useContextEngineStore();
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const [unverifiedUser, setUnverifiedUser] = React.useState<any>(null);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema)
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    // TODO: Wire up actual Firebase / Backend JWT auth here
-    console.log("Simulating login for:", data.email);
-    setTimeout(() => {
-      setUser({ id: '1', name: 'Test User', email: data.email });
+    try {
+      setAuthError(null);
+      setUnverifiedUser(null);
+      
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        setUnverifiedUser(user);
+        setAuthError("Please verify your email address before signing in. Check your inbox or spam folder for the verification link.");
+        return;
+      }
+
+      setUser({ id: user.uid, name: user.displayName || 'User', email: user.email || '' });
       navigate('/');
-    }, 1000);
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      setAuthError("Invalid email or password.");
+    }
+  };
+
+  const handleResend = async () => {
+    if (unverifiedUser) {
+      try {
+        await sendEmailVerification(unverifiedUser);
+        alert("Verification link resent! Please check your inbox.");
+      } catch (e: any) {
+        alert("Error resending link. Please try again later.");
+      }
+    }
   };
 
   const handleGoogleSignIn = async () => {
     try {
+      setAuthError(null);
       const result = await signInWithPopup(auth, googleProvider);
+      const additionalInfo = getAdditionalUserInfo(result);
+      
+      if (additionalInfo?.isNewUser) {
+        // The user tried to sign in, but they don't have an account yet.
+        await result.user.delete();
+        await auth.signOut();
+        setAuthError("Account not found! Please create an account on the Sign Up page first.");
+        return;
+      }
+
       const user = result.user;
       setUser({ id: user.uid, name: user.displayName || 'Google User', email: user.email || '' });
       navigate('/');
     } catch (error: any) {
       console.error("Google Sign-In Error:", error.message);
-      alert("Failed to sign in with Google: " + error.message);
+      setAuthError("Failed to sign in with Google: " + error.message);
     }
   };
 
@@ -63,6 +100,21 @@ export default function Login() {
           <h1 className="text-3xl font-bold tracking-wider mb-2">Vynora</h1>
           <p className="text-textMuted text-center text-sm">One Platform. Every Part of Life.</p>
         </div>
+
+        {authError && (
+          <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-xl mb-6 text-center">
+            <p>{authError}</p>
+            {unverifiedUser && (
+              <button 
+                type="button"
+                onClick={handleResend} 
+                className="mt-3 bg-surface border border-red-500/50 text-red-400 hover:text-red-300 hover:bg-surfaceLight px-4 py-2 rounded-lg transition-colors text-xs font-semibold uppercase tracking-wider"
+              >
+                Resend Verification Link
+              </button>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
@@ -118,7 +170,7 @@ export default function Login() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
           </svg>
-          Continue with Google
+          Sign in with Google
         </button>
 
         <p className="mt-8 text-center text-sm text-textMuted">

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Search, Plus, Trash2, ShieldCheck, Download, Folder, Edit2 } from 'lucide-react';
@@ -17,7 +18,7 @@ export default function DigitalLocker() {
   const fetchDocs = async () => {
     const userId = user?.id || '1';
     try {
-      const res = await fetch(`http://localhost:5000/api/documents?user=${userId}`);
+      const res = await fetch(`${API_BASE_URL}/api/documents?user=${userId}`);
       if (res.ok) setDocuments(await res.json());
     } catch (e) {
       console.error(e);
@@ -27,7 +28,7 @@ export default function DigitalLocker() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/documents/${editId}` : 'http://localhost:5000/api/documents';
+      const url = editId ? `${API_BASE_URL}/api/documents/${editId}` : API_BASE_URL + '/api/documents';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -55,7 +56,7 @@ export default function DigitalLocker() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this document?')) return;
     try {
-      await fetch(`http://localhost:5000/api/documents/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/documents/${id}`, { method: 'DELETE' });
       fetchDocs();
     } catch(e) { console.error(e); }
   };

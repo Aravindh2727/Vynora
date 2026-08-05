@@ -6,6 +6,7 @@ import {
   Save, Camera, CheckCircle2
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
+import { subscribeToPush } from '../utils/push';
 
 type TabId = 'profile' | 'security' | 'notifications' | 'appearance' | 'data';
 
@@ -194,7 +195,7 @@ export default function Settings() {
                     <div className="space-y-6">
                       {[
                         { title: 'Email Notifications', desc: 'Receive daily summaries and critical alerts via email', icon: <Mail size={20}/> },
-                        { title: 'Push Notifications', desc: 'Get real-time updates on your device', icon: <Smartphone size={20}/> },
+                        { title: 'Push Notifications', desc: 'Get real-time updates on your device', icon: <Smartphone size={20}/>, action: () => subscribeToPush(user?.id || '1') },
                         { title: 'Security Alerts', desc: 'Get notified about unusual activity', icon: <Lock size={20}/>, defaultChecked: true },
                       ].map((item, i) => (
                         <div key={i} className="flex items-center justify-between p-4 border border-glass rounded-xl bg-surface/30">
@@ -207,10 +208,14 @@ export default function Settings() {
                               <p className="text-sm text-textMuted">{item.desc}</p>
                             </div>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" defaultChecked={item.defaultChecked} />
-                            <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
-                          </label>
+                          {item.action ? (
+                            <button type="button" onClick={item.action} className="px-4 py-2 bg-primary text-background rounded-lg text-sm font-medium hover:bg-primary/90 shadow-neon-primary-sm">Enable</button>
+                          ) : (
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" className="sr-only peer" defaultChecked={item.defaultChecked} />
+                              <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
+                            </label>
+                          )}
                         </div>
                       ))}
                     </div>

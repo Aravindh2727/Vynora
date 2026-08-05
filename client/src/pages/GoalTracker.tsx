@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Target, Award, Edit2, Trash2 } from 'lucide-react';
@@ -14,7 +15,7 @@ export default function GoalTracker() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/goals?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/goals?user=${user?.id || '1'}`);
       if (res.ok) setGoals(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -22,7 +23,7 @@ export default function GoalTracker() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/goals/${editId}` : 'http://localhost:5000/api/goals';
+      const url = editId ? `${API_BASE_URL}/api/goals/${editId}` : API_BASE_URL + '/api/goals';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -39,7 +40,7 @@ export default function GoalTracker() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/goals/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/goals/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -57,7 +58,7 @@ export default function GoalTracker() {
   const updateProgress = async (id: string, current: number) => {
     const newProgress = current >= 100 ? 0 : current + 25;
     try {
-      await fetch(`http://localhost:5000/api/goals/${id}`, {
+      await fetch(`${API_BASE_URL}/api/goals/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ progress: newProgress, isCompleted: newProgress >= 100 })

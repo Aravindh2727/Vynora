@@ -8,6 +8,7 @@ const transactionSchema = new mongoose.Schema({
   title: { type: String, required: true },
   date: { type: Date, default: Date.now },
   isRecurring: { type: Boolean, default: false },
+  referenceId: { type: String, required: false }, // For universal finance syncing
 }, { timestamps: true });
 
 export default mongoose.model('Transaction', transactionSchema);

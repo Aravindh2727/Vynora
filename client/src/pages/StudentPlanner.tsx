@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, GraduationCap, BookOpen, Calendar, CheckCircle2, Circle, Edit2, Trash2 } from 'lucide-react';
@@ -14,7 +15,7 @@ export default function StudentPlanner() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/student?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/student?user=${user?.id || '1'}`);
       if (res.ok) setTasks(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -22,7 +23,7 @@ export default function StudentPlanner() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/student/${editId}` : 'http://localhost:5000/api/student';
+      const url = editId ? `${API_BASE_URL}/api/student/${editId}` : API_BASE_URL + '/api/student';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -39,7 +40,7 @@ export default function StudentPlanner() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/student/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/student/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -57,7 +58,7 @@ export default function StudentPlanner() {
 
   const toggleStatus = async (id: string, status: string) => {
     try {
-      await fetch(`http://localhost:5000/api/student/${id}`, {
+      await fetch(`${API_BASE_URL}/api/student/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: status === 'Pending' ? 'Completed' : 'Pending' })

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, KeyRound, Copy, Eye, EyeOff, ShieldAlert, Edit2, Trash2 } from 'lucide-react';
@@ -15,7 +16,7 @@ export default function PasswordVault() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/passwords?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/passwords?user=${user?.id || '1'}`);
       if (res.ok) setPasswords(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -23,7 +24,7 @@ export default function PasswordVault() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/passwords/${editId}` : 'http://localhost:5000/api/passwords';
+      const url = editId ? `${API_BASE_URL}/api/passwords/${editId}` : API_BASE_URL + '/api/passwords';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -40,7 +41,7 @@ export default function PasswordVault() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/passwords/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/passwords/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };

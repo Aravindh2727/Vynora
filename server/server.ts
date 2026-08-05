@@ -40,7 +40,10 @@ import studentRoutes from './routes/studentRoutes.ts';
 import healthRoutes from './routes/healthRoutes.ts';
 import goalRoutes from './routes/goalRoutes.ts';
 import familyRoutes from './routes/familyRoutes.ts';
+import familyMemberRoutes from './routes/familyMemberRoutes.ts';
 import dashboardRoutes from './routes/dashboardRoutes.ts';
+import loanRoutes from './routes/loanRoutes.ts';
+import notificationRoutes from './routes/notificationRoutes.ts';
 
 // Routes
 app.use('/api/finance', financeRoutes);
@@ -58,7 +61,10 @@ app.use('/api/student', studentRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/family', familyRoutes);
+app.use('/api/family-members', familyMemberRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'PeopleOS API is running securely' }));
 
 app.post('/api/ai/intent', async (req, res) => {

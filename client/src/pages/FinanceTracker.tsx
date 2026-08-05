@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ArrowUpRight, ArrowDownRight, IndianRupee, Filter, Download, Edit2, Trash2 } from 'lucide-react';
@@ -22,8 +23,8 @@ export default function FinanceTracker() {
     const userId = user?.id || '1'; 
     try {
       const [txRes, sumRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/finance?user=${userId}`),
-        fetch(`http://localhost:5000/api/finance/summary?user=${userId}`)
+        fetch(`${API_BASE_URL}/api/finance?user=${userId}`),
+        fetch(`${API_BASE_URL}/api/finance/summary?user=${userId}`)
       ]);
       if (txRes.ok) setTransactions(await txRes.json());
       if (sumRes.ok) setSummary(await sumRes.json());
@@ -35,7 +36,7 @@ export default function FinanceTracker() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/finance/${editId}` : 'http://localhost:5000/api/finance';
+      const url = editId ? `${API_BASE_URL}/api/finance/${editId}` : API_BASE_URL + '/api/finance';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -52,7 +53,7 @@ export default function FinanceTracker() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/finance/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/finance/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };

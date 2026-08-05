@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Receipt, CheckCircle2, Circle, AlertCircle, Edit2, Trash2 } from 'lucide-react';
@@ -16,7 +17,7 @@ export default function BillReminder() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/bills?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/bills?user=${user?.id || '1'}`);
       if (res.ok) setBills(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -24,7 +25,7 @@ export default function BillReminder() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/bills/${editId}` : 'http://localhost:5000/api/bills';
+      const url = editId ? `${API_BASE_URL}/api/bills/${editId}` : API_BASE_URL + '/api/bills';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -41,7 +42,7 @@ export default function BillReminder() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/bills/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/bills/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -59,7 +60,7 @@ export default function BillReminder() {
 
   const togglePaid = async (id: string, currentStatus: boolean) => {
     try {
-      await fetch(`http://localhost:5000/api/bills/${id}`, {
+      await fetch(`${API_BASE_URL}/api/bills/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isPaid: !currentStatus })

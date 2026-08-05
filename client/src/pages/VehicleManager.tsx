@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Car, Fuel, Edit2, Trash2 } from 'lucide-react';
@@ -17,7 +18,7 @@ export default function VehicleManager() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/vehicles?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/vehicles?user=${user?.id || '1'}`);
       if (res.ok) setVehicles(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -25,7 +26,7 @@ export default function VehicleManager() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/vehicles/${editId}` : 'http://localhost:5000/api/vehicles';
+      const url = editId ? `${API_BASE_URL}/api/vehicles/${editId}` : API_BASE_URL + '/api/vehicles';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -42,7 +43,7 @@ export default function VehicleManager() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/vehicles/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/vehicles/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -60,7 +61,7 @@ export default function VehicleManager() {
   const handleLog = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`http://localhost:5000/api/vehicles/${activeVid}/logs`, {
+      await fetch(`${API_BASE_URL}/api/vehicles/${activeVid}/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...logData, cost: Number(logData.cost) })

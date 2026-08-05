@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, CheckSquare, Clock, CheckCircle2, Circle, Trash2, Edit2 } from 'lucide-react';
@@ -16,7 +17,7 @@ export default function TasksPlanner() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/tasks?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/tasks?user=${user?.id || '1'}`);
       if (res.ok) setTasks(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -24,7 +25,7 @@ export default function TasksPlanner() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/tasks/${editId}` : 'http://localhost:5000/api/tasks';
+      const url = editId ? `${API_BASE_URL}/api/tasks/${editId}` : API_BASE_URL + '/api/tasks';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -52,7 +53,7 @@ export default function TasksPlanner() {
   const updateStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Todo' ? 'InProgress' : currentStatus === 'InProgress' ? 'Done' : 'Todo';
     try {
-      await fetch(`http://localhost:5000/api/tasks/${id}`, {
+      await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -63,7 +64,7 @@ export default function TasksPlanner() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/tasks/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/tasks/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };

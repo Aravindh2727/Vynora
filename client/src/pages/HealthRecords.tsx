@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Activity, HeartPulse, Edit2, Trash2 } from 'lucide-react';
@@ -14,7 +15,7 @@ export default function HealthRecords() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/health?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/health?user=${user?.id || '1'}`);
       if (res.ok) setRecords(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -22,7 +23,7 @@ export default function HealthRecords() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/health/${editId}` : 'http://localhost:5000/api/health';
+      const url = editId ? `${API_BASE_URL}/api/health/${editId}` : API_BASE_URL + '/api/health';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -39,7 +40,7 @@ export default function HealthRecords() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/health/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/health/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };

@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
-    const transactions = await Transaction.find({ user: req.query.user }).sort({ date: -1 });
+    const transactions = await Transaction.find({ user: req.query.user }).sort({ createdAt: -1 });
     res.json(transactions);
   } catch (error: any) {
     res.status(500).json({ message: error.message });

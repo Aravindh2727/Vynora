@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Package, Calendar, Edit2, Trash2 } from 'lucide-react';
@@ -14,7 +15,7 @@ export default function HomeInventory() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/inventory?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/inventory?user=${user?.id || '1'}`);
       if (res.ok) setItems(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -22,7 +23,7 @@ export default function HomeInventory() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/inventory/${editId}` : 'http://localhost:5000/api/inventory';
+      const url = editId ? `${API_BASE_URL}/api/inventory/${editId}` : API_BASE_URL + '/api/inventory';
       const method = editId ? 'PUT' : 'POST';
 
       await fetch(url, {
@@ -39,7 +40,7 @@ export default function HomeInventory() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/inventory/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/inventory/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };

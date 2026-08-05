@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, CreditCard, FileText, CheckSquare, Box, Settings, Search, Bell,
   User, Sparkles, LogOut, Pill, Receipt, AlertTriangle, Tractor, FileDigit,
-  Car, GraduationCap, Key, Users, HeartPulse, Target, BarChart, Menu
+  Car, GraduationCap, Key, Users, HeartPulse, Target, BarChart, Menu, Banknote
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -25,9 +25,11 @@ import StudentPlanner from './pages/StudentPlanner';
 import HealthRecords from './pages/HealthRecords';
 import GoalTracker from './pages/GoalTracker';
 import FamilyDashboard from './pages/FamilyDashboard';
+import GlobalReports from './pages/GlobalReports';
 import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LoanManager from './pages/LoanManager';
 import ProtectedRoute from './components/ProtectedRoute';
 import AIChatWidget from './components/AIChatWidget';
 
@@ -100,6 +102,7 @@ function App() {
   const navItems = [
     { path: '/', icon: <Home size={20} />, label: 'Dashboard' },
     { path: '/finance', icon: <CreditCard size={20} />, label: 'Finance' },
+    { path: '/loans', icon: <Banknote size={20} />, label: 'Loan Management' },
     { path: '/digital-locker', icon: <FileText size={20} />, label: 'Digital Locker' },
     { path: '/tasks', icon: <CheckSquare size={20} />, label: 'Tasks & Planner' },
     { path: '/medicine', icon: <Pill size={20} />, label: 'Medicine Reminder' },
@@ -313,6 +316,7 @@ function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><Dashboard /></motion.div>} />
                 <Route path="/finance" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FinanceTracker /></motion.div>} />
+                <Route path="/loans" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><LoanManager /></motion.div>} />
                 <Route path="/digital-locker" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><DigitalLocker /></motion.div>} />
                 
                 <Route path="/tasks" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><TasksPlanner /></motion.div>} />
@@ -330,7 +334,7 @@ function App() {
                 <Route path="/family" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FamilyDashboard /></motion.div>} />
                 
                 {/* ModulePlaceholder mapping complete. */}
-                <Route path="/reports" element={<ModulePlaceholder title="Global Reports" />} />
+                <Route path="/reports" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><GlobalReports /></motion.div>} />
                 <Route path="/settings" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><SettingsPage /></motion.div>} />
 
                 <Route path="*" element={<ModulePlaceholder title="404 - Module Not Found" />} />
@@ -340,7 +344,7 @@ function App() {
         </div>
 
         {/* Floating AI Chat Widget */}
-        <AIChatWidget />
+        {location.pathname === '/' && <AIChatWidget />}
 
         {cmdMenuOpen && (
           <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh]" onClick={() => setCmdMenuOpen(false)}>

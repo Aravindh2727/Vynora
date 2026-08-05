@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, MessageSquare, Send } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function AIChatWidget() {
     useContextEngineStore.setState({ aiStatus: 'thinking' });
 
     try {
-      const res = await fetch('http://localhost:5000/api/ai/intent', {
+      const res = await fetch(API_BASE_URL + '/api/ai/intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: currentInput })

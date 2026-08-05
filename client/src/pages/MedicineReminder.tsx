@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, BellRing, CheckCircle2, Circle, Clock, Pill, Edit2, Trash2 } from 'lucide-react';
@@ -31,7 +32,7 @@ export default function MedicineReminder() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/medicine?user=${user?.id || '1'}`);
+      const res = await fetch(`${API_BASE_URL}/api/medicine?user=${user?.id || '1'}`);
       if (res.ok) setMedicines(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -39,7 +40,7 @@ export default function MedicineReminder() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = editId ? `http://localhost:5000/api/medicine/${editId}` : 'http://localhost:5000/api/medicine';
+      const url = editId ? `${API_BASE_URL}/api/medicine/${editId}` : API_BASE_URL + '/api/medicine';
       const method = editId ? 'PUT' : 'POST';
       
       await fetch(url, {
@@ -63,7 +64,7 @@ export default function MedicineReminder() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/medicine/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/medicine/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -86,7 +87,7 @@ export default function MedicineReminder() {
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     try {
-      await fetch(`http://localhost:5000/api/medicine/${id}`, {
+      await fetch(`${API_BASE_URL}/api/medicine/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isCompleted: !currentStatus })

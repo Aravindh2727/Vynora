@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -37,7 +38,7 @@ export default function Dashboard() {
     if (!user?.id) return;
     const fetchDashboard = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/dashboard?user=${user.id}`);
+        const res = await fetch(`${API_BASE_URL}/api/dashboard?user=${user.id}`);
         if (res.ok) {
           setData(await res.json());
         }

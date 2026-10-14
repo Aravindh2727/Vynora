@@ -13,7 +13,7 @@ export default function ProtectedRoute() {
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} className="w-16 h-16 rounded-full border-t-2 border-primary border-r-2 border-transparent flex items-center justify-center">
           <Sparkles className="text-primary absolute animate-pulse" size={24} />
         </motion.div>
-        <p className="text-textMuted mt-4 tracking-wider animate-pulse font-mono">INITIALIZING PEOPLE OS...</p>
+        <p className="text-textMuted mt-4 tracking-wider animate-pulse font-mono">INITIALIZING VYNORA...</p>
       </div>
     );
   }

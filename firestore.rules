@@ -1,0 +1,247 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for secure user isolation & authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isCreatingForSelf() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function isValidUpdate() {
+      return isDocOwner() && request.resource.data.userId == resource.data.userId;
+    }
+
+    // Default: Deny all access unless explicitly matched
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Transactions & Finances
+    match /transactions/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.amount is number;
+      allow update: if isValidUpdate();
+    }
+
+    match /accounts/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.balance is number;
+      allow update: if isValidUpdate();
+    }
+
+    match /budgets/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.amount is number;
+      allow update: if isValidUpdate();
+    }
+
+    // 2. Loans
+    match /loans/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.principalAmount is number;
+      allow update: if isValidUpdate();
+    }
+
+    // 3. Agriculture (Crops, Farms, Field Activities)
+    match /crops/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /farms/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /crop_activities/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 4. Dairy Management (Cows, Milk Logs, Feed, Vet Records, Breeding)
+    match /cows/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /dairy_logs/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /farm_feed/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /dairy_vet_records/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /dairy_breeding/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 5. Medicine Reminder
+    match /medicines/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 6. Bills & Utilities
+    match /bills/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.amount is number;
+      allow update: if isValidUpdate();
+    }
+
+    // 7. Digital Locker (Documents)
+    match /documents/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 8. Emergency Contacts
+    match /contacts/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 9. Tasks & Planner
+    match /tasks/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 10. Vehicle Management (Fleet, Fuel, Service)
+    match /vehicles/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /vehicle_fuel_logs/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.cost is number;
+      allow update: if isValidUpdate();
+    }
+
+    match /vehicle_service_logs/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.cost is number;
+      allow update: if isValidUpdate();
+    }
+
+    // 11. Student Planner (Assignments, Courses, Timetable)
+    match /student_items/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /student_courses/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /student_timetable/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 12. Home Inventory
+    match /inventory/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 13. Password Vault
+    match /passwords/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 14. Family Dashboard (Posts, Members, Chores, Events, Expenses)
+    match /family_posts/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /family_members/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /family_chores/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /family_events/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /family_expenses/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf() && request.resource.data.amount is number;
+      allow update: if isValidUpdate();
+    }
+
+    // 15. Health Records & Doctor Visits
+    match /health_records/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /health_visits/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    // 16. Goal Tracker & Milestones
+    match /goals/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /goal_milestones/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+  }
+}

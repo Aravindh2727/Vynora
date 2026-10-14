@@ -4,68 +4,33 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import xss from 'xss-clean';
-import { connectDB } from './config/db.ts';
+import notificationRoutes from './routes/notificationRoutes.ts';
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
 // Security Middleware
-app.use(helmet()); // Sets HTTP security headers
+app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '10kb' })); // Body parser size limit
-app.use(xss()); // Prevent Cross-Site Scripting (XSS)
+app.use(express.json({ limit: '10kb' }));
+app.use(xss());
 
 // Rate Limiting against brute-force/DDoS
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 mins
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api', limiter);
 
-import financeRoutes from './routes/financeRoutes.ts';
-import documentRoutes from './routes/documentRoutes.ts';
-import medicineRoutes from './routes/medicineRoutes.ts';
-import billRoutes from './routes/billRoutes.ts';
-import taskRoutes from './routes/taskRoutes.ts';
-import agricultureRoutes from './routes/agricultureRoutes.ts';
-import dairyRoutes from './routes/dairyRoutes.ts';
-import vehicleRoutes from './routes/vehicleRoutes.ts';
-import inventoryRoutes from './routes/inventoryRoutes.ts';
-import passwordRoutes from './routes/passwordRoutes.ts';
-import contactRoutes from './routes/contactRoutes.ts';
-import studentRoutes from './routes/studentRoutes.ts';
-import healthRoutes from './routes/healthRoutes.ts';
-import goalRoutes from './routes/goalRoutes.ts';
-import familyRoutes from './routes/familyRoutes.ts';
-import familyMemberRoutes from './routes/familyMemberRoutes.ts';
-import dashboardRoutes from './routes/dashboardRoutes.ts';
-import loanRoutes from './routes/loanRoutes.ts';
-import notificationRoutes from './routes/notificationRoutes.ts';
-
-// Routes
-app.use('/api/finance', financeRoutes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/medicine', medicineRoutes);
-app.use('/api/bills', billRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/agriculture', agricultureRoutes);
-app.use('/api/dairy', dairyRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/passwords', passwordRoutes);
-app.use('/api/contacts', contactRoutes);
-app.use('/api/student', studentRoutes);
-app.use('/api/health', healthRoutes);
-app.use('/api/goals', goalRoutes);
-app.use('/api/family', familyRoutes);
-app.use('/api/family-members', familyMemberRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/loans', loanRoutes);
+// Dedicated retained services
 app.use('/api/notifications', notificationRoutes);
-app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'PeopleOS API is running securely' }));
+app.get('/api/health', (req, res) => res.json({ 
+  status: 'ok', 
+  service: 'Vynora Intelligence Server', 
+  database: 'Firebase Cloud Firestore' 
+}));
 
 app.post('/api/ai/intent', async (req, res) => {
   try {
@@ -79,12 +44,33 @@ app.post('/api/ai/intent', async (req, res) => {
 
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
+    if (!OPENROUTER_API_KEY) {
+      let fallbackText = "I'm currently operating in offline mode. Set OPENROUTER_API_KEY in server/.env for full cloud AI reasoning. ";
+      const lower = (message || '').toLowerCase();
+      if (lower.includes('expense') || lower.includes('money') || lower.includes('spend') || lower.includes('finance')) {
+        fallbackText += "You can record and budget all your daily expenses and income in the Finance Tracker.";
+      } else if (lower.includes('loan') || lower.includes('emi')) {
+        fallbackText += "Check the Loan Management module to compute EMI amortizations and track paid installments.";
+      } else if (lower.includes('milk') || lower.includes('cow') || lower.includes('dairy')) {
+        fallbackText += "Use the Dairy Management module to log morning and evening milk yields and manage feed costs.";
+      } else if (lower.includes('crop') || lower.includes('farm') || lower.includes('agriculture')) {
+        fallbackText += "Your crops, fertilizers, and field revenues are monitored in the Agriculture Manager.";
+      } else if (lower.includes('medicine') || lower.includes('pill')) {
+        fallbackText += "Set up medicine reminders with custom schedules in Medicine Reminder.";
+      } else if (lower.includes('bill')) {
+        fallbackText += "Review upcoming and overdue bills in the Bill Reminder module.";
+      } else {
+        fallbackText += `I received: "${message}". How can I help you manage your day?`;
+      }
+      return res.json({ intent: 'assistant', response: fallbackText });
+    }
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "http://localhost:5173", // Required by OpenRouter
-        "X-Title": "Vynora", // Required by OpenRouter
+        "HTTP-Referer": "http://localhost:5173",
+        "X-Title": "Vynora",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -98,11 +84,10 @@ app.post('/api/ai/intent', async (req, res) => {
 
     const data = await response.json();
     if (!response.ok) {
-        throw new Error(data.error?.message || "OpenRouter API Error");
+      throw new Error(data.error?.message || "OpenRouter API Error");
     }
 
     const text = data.choices[0].message.content;
-
     res.json({ intent: 'assistant', response: text });
   } catch (error: any) {
     console.error('AI Error:', error);
@@ -111,4 +96,4 @@ app.post('/api/ai/intent', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT as number, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT as number, '0.0.0.0', () => console.log(`Vynora server running on port ${PORT} (Firebase Firestore & Cloudinary architecture)`));

@@ -1,5 +1,4 @@
 import webpush from 'web-push';
-import Subscription from '../models/Subscription.ts';
 
 // Hardcoded for Vynora local environment (in production, use .env)
 const vapidPublicKey = 'BLXzXvww9TXfpCrCnKaATPLOjk02v8N7gggdiK1_MhNKXYW30Z2H4MNqJS_GEBWdjQGPXdPzC2jv3hCzK2RgFWY';
@@ -11,31 +10,50 @@ webpush.setVapidDetails(
   vapidPrivateKey
 );
 
-export const sendPushNotification = async (user: string, payload: any) => {
-    try {
-        // Find all subscriptions for this user
-        const subscriptions = await Subscription.find({ user });
-        
-        const promises = subscriptions.map(async (sub) => {
-            try {
-                await webpush.sendNotification(
-                    JSON.parse(sub.subscription),
-                    JSON.stringify(payload)
-                );
-            } catch (err: any) {
-                // If subscription is invalid/expired (statusCode 410 or 404), remove it
-                if (err.statusCode === 410 || err.statusCode === 404) {
-                    await Subscription.findByIdAndDelete(sub._id);
-                } else {
-                    console.error('Error sending push:', err);
-                }
-            }
-        });
+interface PushSub {
+  user: string;
+  subscription: string;
+}
 
-        await Promise.all(promises);
-    } catch (err) {
-        console.error('Error fetching subscriptions for push:', err);
-    }
+const subscriptionStore: PushSub[] = [];
+
+export const saveSubscription = (user: string, subString: string) => {
+  const exists = subscriptionStore.some(s => s.user === user && s.subscription === subString);
+  if (!exists) {
+    subscriptionStore.push({ user, subscription: subString });
+  }
+};
+
+export const deleteSubscription = (user: string, subString: string) => {
+  const idx = subscriptionStore.findIndex(s => s.user === user && s.subscription === subString);
+  if (idx !== -1) {
+    subscriptionStore.splice(idx, 1);
+  }
+};
+
+export const sendPushNotification = async (user: string, payload: any) => {
+  try {
+    const userSubs = subscriptionStore.filter(s => s.user === user);
+    const promises = userSubs.map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          JSON.parse(sub.subscription),
+          JSON.stringify(payload)
+        );
+      } catch (err: any) {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          deleteSubscription(sub.user, sub.subscription);
+        } else {
+          console.error('Error sending push:', err);
+        }
+      }
+    });
+
+    await Promise.all(promises);
+  } catch (err) {
+    console.error('Error processing subscriptions for push:', err);
+  }
 };
 
 export { vapidPublicKey };
+

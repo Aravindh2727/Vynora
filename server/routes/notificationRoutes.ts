@@ -1,6 +1,5 @@
 import express from 'express';
-import Subscription from '../models/Subscription.ts';
-import { vapidPublicKey } from '../utils/pushService.ts';
+import { vapidPublicKey, saveSubscription, deleteSubscription } from '../utils/pushService.ts';
 
 const router = express.Router();
 
@@ -10,19 +9,12 @@ router.get('/vapidPublicKey', (req, res) => {
 });
 
 // Subscribe a device
-router.post('/subscribe', async (req, res) => {
+router.post('/subscribe', (req, res) => {
     try {
         const { subscription, user } = req.body;
-        
-        // Prevent duplicate subscriptions for the same user/device
-        const existing = await Subscription.findOne({ user, subscription: JSON.stringify(subscription) });
-        if (!existing) {
-            await new Subscription({
-                user,
-                subscription: JSON.stringify(subscription)
-            }).save();
+        if (subscription && user) {
+            saveSubscription(user, JSON.stringify(subscription));
         }
-        
         res.status(201).json({ message: 'Subscribed successfully' });
     } catch (err: any) {
         res.status(400).json({ message: err.message });
@@ -30,10 +22,12 @@ router.post('/subscribe', async (req, res) => {
 });
 
 // Unsubscribe a device
-router.post('/unsubscribe', async (req, res) => {
+router.post('/unsubscribe', (req, res) => {
     try {
         const { subscription, user } = req.body;
-        await Subscription.findOneAndDelete({ user, subscription: JSON.stringify(subscription) });
+        if (subscription && user) {
+            deleteSubscription(user, JSON.stringify(subscription));
+        }
         res.json({ message: 'Unsubscribed successfully' });
     } catch (err: any) {
         res.status(500).json({ message: err.message });

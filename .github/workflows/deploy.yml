@@ -1,0 +1,22 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Trigger Render Deployments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Web Service Deploy Hook (vynora-server)
+        run: |
+          echo "Triggering Web Service deployment..."
+          curl -X POST "${{ secrets.RENDER_SERVER_DEPLOY_HOOK || 'https://api.render.com/deploy/srv-db8dkbgm7kps73e0strg?key=auC7imwRoYQ' }}"
+
+      - name: Trigger Static Site Deploy Hook (vynora-client)
+        run: |
+          echo "Triggering Static Site deployment..."
+          curl -X POST "${{ secrets.RENDER_STATIC_DEPLOY_HOOK || 'https://api.render.com/deploy/srv-db8dmh7avr4c73b4fm40?key=euyoURPn7qc' }}"

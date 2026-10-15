@@ -114,10 +114,28 @@ export default function VehicleManager() {
     fetchVehicles();
   }, [user]);
 
+  // Safe Date Formatter to avoid RangeError: Invalid time value
+  const formatIsoDate = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+    }
+    if (typeof val?.toDate === 'function') {
+      const d = val.toDate();
+      return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+    }
+    if (val instanceof Date) {
+      return isNaN(val.getTime()) ? '' : val.toISOString().split('T')[0];
+    }
+    return '';
+  };
+
   // Selected vehicle object from URL state
   const selectedVehicle = useMemo(() => {
     if (!selectedVehicleId) return null;
-    return vehicles.find(v => v._id === selectedVehicleId) || null;
+    return vehicles.find(v => (v._id && v._id === selectedVehicleId) || (v.id && v.id === selectedVehicleId)) || null;
   }, [vehicles, selectedVehicleId]);
 
   // Fetch sub-logs when a vehicle is active
@@ -154,7 +172,7 @@ export default function VehicleManager() {
 
   // Navigation Helpers (Step-by-step history pushes)
   const openVehicle = (v: any) => {
-    setSearchParams({ vehicleId: v._id });
+    setSearchParams({ vehicleId: v._id || v.id });
   };
 
   const openSubsection = (sub: string) => {
@@ -174,29 +192,68 @@ export default function VehicleManager() {
   // Save Vehicle
   const handleSaveVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vehicleFormData.name.trim() || !vehicleFormData.licensePlate.trim()) return;
+    if (!vehicleFormData.name.trim() || !vehicleFormData.licensePlate.trim()) {
+      alert("Vehicle name and registration number are required.");
+      return;
+    }
 
     try {
-      const payload = {
-        ...vehicleFormData,
-        year: Number(vehicleFormData.year) || undefined,
+      const payload: Record<string, any> = {
+        name: vehicleFormData.name.trim(),
+        type: vehicleFormData.type,
+        licensePlate: vehicleFormData.licensePlate.trim().toUpperCase(),
+        make: vehicleFormData.make || '',
+        model: vehicleFormData.model || '',
+        year: vehicleFormData.year ? Number(vehicleFormData.year) || null : null,
+        color: vehicleFormData.color || '',
+        rcNumber: vehicleFormData.rcNumber || '',
+        rcExpiry: vehicleFormData.rcExpiry || '',
+        rcDocUrl: vehicleFormData.rcDocUrl || '',
+        insuranceProvider: vehicleFormData.insuranceProvider || '',
+        insurancePolicyNumber: vehicleFormData.insurancePolicyNumber || '',
+        insuranceExpiry: vehicleFormData.insuranceExpiry || '',
         insurancePremium: Number(vehicleFormData.insurancePremium) || 0,
+        insuranceDocUrl: vehicleFormData.insuranceDocUrl || '',
+        pucNumber: vehicleFormData.pucNumber || '',
+        pucExpiry: vehicleFormData.pucExpiry || '',
+        pucDocUrl: vehicleFormData.pucDocUrl || '',
+        drivingLicenceNo: vehicleFormData.drivingLicenceNo || '',
+        drivingLicenceDocUrl: vehicleFormData.drivingLicenceDocUrl || '',
         lastServiceOdo: Number(vehicleFormData.lastServiceOdo) || 0,
-        nextServiceOdo: Number(vehicleFormData.nextServiceOdo) || 0
+        nextServiceOdo: Number(vehicleFormData.nextServiceOdo) || 0,
+        nextServiceDate: vehicleFormData.nextServiceDate || '',
+        financier: vehicleFormData.financier || '',
+        loanAccountNo: vehicleFormData.loanAccountNo || '',
+        engineOilType: vehicleFormData.engineOilType || '5W-30 Synthetic',
+        lastOilChangeOdo: Number(vehicleFormData.lastOilChangeOdo) || 0,
+        batteryMake: vehicleFormData.batteryMake || '',
+        batteryInstallDate: vehicleFormData.batteryInstallDate || '',
+        tyreBrand: vehicleFormData.tyreBrand || '',
+        tyrePressureFront: vehicleFormData.tyrePressureFront || '32',
+        tyrePressureRear: vehicleFormData.tyrePressureRear || '34'
       };
 
+      const cleanData: any = {};
+      Object.keys(payload).forEach(k => {
+        if (payload[k] !== undefined) cleanData[k] = payload[k];
+      });
+
       if (editVehicleId) {
-        await VehicleService.updateVehicle(editVehicleId, payload);
+        await VehicleService.updateVehicle(editVehicleId, cleanData);
       } else {
-        await VehicleService.addVehicle(activeUid, payload);
+        await VehicleService.addVehicle(activeUid, cleanData);
       }
 
       setShowVehicleModal(false);
       setEditVehicleId(null);
       resetVehicleForm();
-      fetchVehicles();
-    } catch (e) {
+      await fetchVehicles();
+      if (selectedVehicleId) {
+        fetchVehicleLogs(selectedVehicleId);
+      }
+    } catch (e: any) {
       console.error('Error saving vehicle:', e);
+      alert('Failed to save vehicle: ' + (e.message || e));
     }
   };
 
@@ -213,41 +270,42 @@ export default function VehicleManager() {
   };
 
   const handleEditVehicle = (v: any) => {
+    if (!v) return;
     setVehicleFormData({
       name: v.name || '',
       type: v.type || 'Car',
       licensePlate: v.licensePlate || '',
       make: v.make || '',
       model: v.model || '',
-      year: String(v.year || ''),
+      year: v.year ? String(v.year) : '',
       color: v.color || '',
       rcNumber: v.rcNumber || '',
-      rcExpiry: v.rcExpiry ? new Date(v.rcExpiry).toISOString().split('T')[0] : '',
+      rcExpiry: formatIsoDate(v.rcExpiry),
       rcDocUrl: v.rcDocUrl || '',
       insuranceProvider: v.insuranceProvider || '',
       insurancePolicyNumber: v.insurancePolicyNumber || '',
-      insuranceExpiry: v.insuranceExpiry ? new Date(v.insuranceExpiry).toISOString().split('T')[0] : '',
-      insurancePremium: String(v.insurancePremium || ''),
+      insuranceExpiry: formatIsoDate(v.insuranceExpiry),
+      insurancePremium: v.insurancePremium ? String(v.insurancePremium) : '',
       insuranceDocUrl: v.insuranceDocUrl || '',
       pucNumber: v.pucNumber || '',
-      pucExpiry: v.pucExpiry ? new Date(v.pucExpiry).toISOString().split('T')[0] : '',
+      pucExpiry: formatIsoDate(v.pucExpiry),
       pucDocUrl: v.pucDocUrl || '',
       drivingLicenceNo: v.drivingLicenceNo || '',
       drivingLicenceDocUrl: v.drivingLicenceDocUrl || '',
-      lastServiceOdo: String(v.lastServiceOdo || ''),
-      nextServiceOdo: String(v.nextServiceOdo || ''),
-      nextServiceDate: v.nextServiceDate ? new Date(v.nextServiceDate).toISOString().split('T')[0] : '',
+      lastServiceOdo: v.lastServiceOdo ? String(v.lastServiceOdo) : '',
+      nextServiceOdo: v.nextServiceOdo ? String(v.nextServiceOdo) : '',
+      nextServiceDate: formatIsoDate(v.nextServiceDate),
       financier: v.financier || '',
       loanAccountNo: v.loanAccountNo || '',
       engineOilType: v.engineOilType || '5W-30 Synthetic',
-      lastOilChangeOdo: String(v.lastOilChangeOdo || ''),
+      lastOilChangeOdo: v.lastOilChangeOdo ? String(v.lastOilChangeOdo) : '',
       batteryMake: v.batteryMake || '',
-      batteryInstallDate: v.batteryInstallDate ? new Date(v.batteryInstallDate).toISOString().split('T')[0] : '',
+      batteryInstallDate: formatIsoDate(v.batteryInstallDate),
       tyreBrand: v.tyreBrand || '',
       tyrePressureFront: String(v.tyrePressureFront || '32'),
       tyrePressureRear: String(v.tyrePressureRear || '34')
     });
-    setEditVehicleId(v._id);
+    setEditVehicleId(v._id || v.id);
     setShowVehicleModal(true);
   };
 
@@ -271,8 +329,10 @@ export default function VehicleManager() {
       }
     }
 
+    const vId = selectedVehicle._id || selectedVehicle.id;
+
     try {
-      await VehicleService.addFuelLog(selectedVehicle._id, {
+      await VehicleService.addFuelLog(vId, {
         ...fuelFormData,
         vehicleName: selectedVehicle.name,
         odometer: odo,
@@ -288,9 +348,10 @@ export default function VehicleManager() {
         fuelType: 'Petrol', odometer: '', liters: '', pricePerLiter: '', cost: '',
         isFullTank: true, station: '', receiptUrl: ''
       });
-      fetchVehicleLogs(selectedVehicle._id);
-    } catch (e) {
+      fetchVehicleLogs(vId);
+    } catch (e: any) {
       console.error('Error saving fuel log:', e);
+      alert('Failed to save fuel log: ' + (e.message || e));
     }
   };
 
@@ -298,16 +359,17 @@ export default function VehicleManager() {
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVehicle) return;
+    const vId = selectedVehicle._id || selectedVehicle.id;
 
     try {
-      await VehicleService.addServiceLog(selectedVehicle._id, {
+      await VehicleService.addServiceLog(vId, {
         ...serviceFormData,
         vehicleName: selectedVehicle.name,
         odometer: Number(serviceFormData.odometer) || 0,
         cost: Number(serviceFormData.cost) || 0
       }, activeUid);
 
-      await VehicleService.updateVehicle(selectedVehicle._id, {
+      await VehicleService.updateVehicle(vId, {
         lastServiceOdo: Number(serviceFormData.odometer) || selectedVehicle.lastServiceOdo
       });
 
@@ -316,10 +378,11 @@ export default function VehicleManager() {
         date: new Date().toISOString().split('T')[0],
         serviceType: 'General Service', odometer: '', cost: '', garage: '', notes: '', receiptUrl: ''
       });
-      fetchVehicleLogs(selectedVehicle._id);
+      fetchVehicleLogs(vId);
       fetchVehicles();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error saving service log:', e);
+      alert('Failed to save service log: ' + (e.message || e));
     }
   };
 

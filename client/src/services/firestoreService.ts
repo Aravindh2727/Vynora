@@ -54,6 +54,17 @@ function snapToData<T = any>(snap: any): T & { _id: string; id: string } {
   return formatted;
 }
 
+// Clean undefined fields to avoid Firestore unsupported field value errors
+export function cleanPayload<T extends Record<string, any>>(obj: T): Partial<T> {
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 // ==========================================
 // 1. FINANCE / TRANSACTIONS
 // ==========================================
@@ -90,11 +101,11 @@ export const FinanceService = {
 
   async updateTransaction(id: string, data: any) {
     const docRef = doc(db, 'transactions', id);
-    await updateDoc(docRef, {
-      ...data,
-      amount: data.amount !== undefined ? Number(data.amount) || 0 : undefined,
-      updatedAt: serverTimestamp()
-    });
+    const updateData: any = { ...data, updatedAt: serverTimestamp() };
+    if (data.amount !== undefined) {
+      updateData.amount = Number(data.amount) || 0;
+    }
+    await updateDoc(docRef, cleanPayload(updateData));
     return { ...data, _id: id, id };
   },
 
@@ -128,11 +139,11 @@ export const FinanceService = {
 
   async updateAccount(id: string, data: any) {
     const docRef = doc(db, 'accounts', id);
-    await updateDoc(docRef, {
-      ...data,
-      balance: data.balance !== undefined ? Number(data.balance) : undefined,
-      updatedAt: serverTimestamp()
-    });
+    const updateData: any = { ...data, updatedAt: serverTimestamp() };
+    if (data.balance !== undefined) {
+      updateData.balance = Number(data.balance) || 0;
+    }
+    await updateDoc(docRef, cleanPayload(updateData));
     return { ...data, _id: id, id };
   },
 
@@ -403,11 +414,11 @@ export const AgricultureService = {
 
   async updateFarm(id: string, data: any) {
     const docRef = doc(db, 'farms', id);
-    await updateDoc(docRef, {
-      ...data,
-      acreage: data.acreage !== undefined ? Number(data.acreage) : undefined,
-      updatedAt: serverTimestamp()
-    });
+    const updateData: any = { ...data, updatedAt: serverTimestamp() };
+    if (data.acreage !== undefined) {
+      updateData.acreage = Number(data.acreage) || 0;
+    }
+    await updateDoc(docRef, cleanPayload(updateData));
     return { ...data, _id: id, id };
   },
 
@@ -1018,7 +1029,7 @@ export const VehicleService = {
 
   async updateVehicle(id: string, data: any) {
     const docRef = doc(db, 'vehicles', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1264,12 +1275,10 @@ export const InventoryService = {
 
   async updateInventory(id: string, data: any) {
     const docRef = doc(db, 'inventory', id);
-    await updateDoc(docRef, {
-      ...data,
-      price: data.price !== undefined ? Number(data.price) : undefined,
-      estimatedValue: data.estimatedValue !== undefined ? Number(data.estimatedValue) : undefined,
-      updatedAt: serverTimestamp()
-    });
+    const updateData: any = { ...data, updatedAt: serverTimestamp() };
+    if (data.price !== undefined) updateData.price = Number(data.price) || 0;
+    if (data.estimatedValue !== undefined) updateData.estimatedValue = Number(data.estimatedValue) || 0;
+    await updateDoc(docRef, cleanPayload(updateData));
     return { ...data, _id: id, id };
   },
 

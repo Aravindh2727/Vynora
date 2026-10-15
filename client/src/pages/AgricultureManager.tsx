@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { calculateCropFinances } from '../utils/calculations';
+import { formatIsoDate } from '../utils/dateUtils';
 import { AgricultureService, getActiveUserId } from '../services/firestoreService';
 import { exportToCSV } from '../utils/csvExport';
 import { FileUpload } from '../components/common/FileUpload';
@@ -163,14 +164,15 @@ export default function AgricultureManager() {
   };
 
   const handleEditCrop = (crop: any) => {
+    if (!crop) return;
     setCropFormData({
       name: crop.name || '',
       variety: crop.variety || '',
       farmId: crop.farmId || '',
       season: crop.season || 'Kharif (Monsoon)',
       areaAcres: String(crop.areaAcres || ''),
-      plantingDate: crop.plantingDate ? new Date(crop.plantingDate).toISOString().split('T')[0] : '',
-      harvestDate: crop.harvestDate ? new Date(crop.harvestDate).toISOString().split('T')[0] : '',
+      plantingDate: formatIsoDate(crop.plantingDate),
+      harvestDate: formatIsoDate(crop.harvestDate),
       seedCost: String(crop.seedCost || ''),
       fertilizerCost: String(crop.fertilizerCost || ''),
       waterCost: String(crop.waterCost || ''),
@@ -184,7 +186,7 @@ export default function AgricultureManager() {
       status: crop.status || 'Sown / Growing',
       receiptUrl: crop.receiptUrl || ''
     });
-    setEditCropId(crop._id);
+    setEditCropId(crop._id || crop.id);
     setShowCropModal(true);
   };
 

@@ -117,7 +117,8 @@ export default function PasswordVault() {
       const decMap: Record<string, string> = {};
       for (const item of data) {
         if (item.password) {
-          decMap[item._id] = await decryptVaultItem(item.password, key);
+          const itemId = item._id || item.id;
+          decMap[itemId] = await decryptVaultItem(item.password, key);
         }
       }
       setDecryptedPasswords(decMap);
@@ -161,15 +162,16 @@ export default function PasswordVault() {
   };
 
   const handleEdit = (p: any) => {
+    const itemId = p._id || p.id;
     setFormData({
       platform: p.platform || '',
       username: p.username || '',
-      password: decryptedPasswords[p._id] || '',
+      password: decryptedPasswords[itemId] || '',
       url: p.url || '',
       category: p.category || 'Personal',
       notes: p.notes || ''
     });
-    setEditId(p._id);
+    setEditId(itemId);
     setShowModal(true);
   };
 
@@ -321,12 +323,13 @@ export default function PasswordVault() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredPasswords.map((p: any) => {
-                const plainPassword = decryptedPasswords[p._id] || '';
-                const isRevealed = Boolean(revealed[p._id]);
+                const itemId = p._id || p.id;
+                const plainPassword = decryptedPasswords[itemId] || '';
+                const isRevealed = Boolean(revealed[itemId]);
 
                 return (
                   <motion.div
-                    key={p._id}
+                    key={itemId}
                     whileHover={{ y: -4 }}
                     className="glass-panel p-6 flex flex-col justify-between border-l-4 border-l-red-400 hover:shadow-neon-primary-sm transition-all"
                   >
@@ -351,7 +354,7 @@ export default function PasswordVault() {
                             <Edit2 size={15} />
                           </button>
                           <button
-                            onClick={() => setDeleteId(p._id)}
+                            onClick={() => setDeleteId(itemId)}
                             className="p-1.5 text-textMuted hover:text-red-400 transition-colors"
                             title="Delete"
                           >
@@ -376,7 +379,7 @@ export default function PasswordVault() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => toggleReveal(p._id)}
+                            onClick={() => toggleReveal(itemId)}
                             className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface text-textMuted hover:text-textMain transition-colors touch-target"
                             title={isRevealed ? 'Hide' : 'Reveal'}
                             aria-label={isRevealed ? 'Hide password' : 'Reveal password'}
@@ -384,14 +387,14 @@ export default function PasswordVault() {
                             {isRevealed ? <EyeOff size={18} /> : <Eye size={18} />}
                           </button>
                           <button
-                            onClick={() => handleCopyPassword(p._id, plainPassword)}
+                            onClick={() => handleCopyPassword(itemId, plainPassword)}
                             className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors touch-target ${
-                              copiedId === p._id ? 'text-green-400 bg-green-500/20' : 'text-textMuted hover:text-primary hover:bg-surface'
+                              copiedId === itemId ? 'text-green-400 bg-green-500/20' : 'text-textMuted hover:text-primary hover:bg-surface'
                             }`}
                             title="Copy to clipboard (30s auto-clear)"
                             aria-label="Copy password to clipboard"
                           >
-                            {copiedId === p._id ? <Check size={18} /> : <Copy size={18} />}
+                            {copiedId === itemId ? <Check size={18} /> : <Copy size={18} />}
                           </button>
                         </div>
                       </div>

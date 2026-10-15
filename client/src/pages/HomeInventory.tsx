@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { InventoryService, getActiveUserId } from '../services/firestoreService';
+import { formatIsoDate } from '../utils/dateUtils';
 import { calculateDaysRemaining } from '../utils/calculations';
 import { exportToCSV } from '../utils/csvExport';
 import { FileUpload } from '../components/common/FileUpload';
@@ -115,12 +116,12 @@ export default function HomeInventory() {
       model: item.model || '',
       serialNumber: item.serialNumber || '',
       condition: item.condition || 'Good',
-      purchaseDate: item.purchaseDate ? new Date(item.purchaseDate).toISOString().split('T')[0] : '',
-      warrantyExpiry: item.warrantyExpiry ? new Date(item.warrantyExpiry).toISOString().split('T')[0] : '',
+      purchaseDate: formatIsoDate(item.purchaseDate),
+      warrantyExpiry: formatIsoDate(item.warrantyExpiry),
       receiptUrl: item.receiptUrl || '',
       notes: item.notes || ''
     });
-    setEditId(item._id);
+    setEditId(item._id || item.id);
     setShowModal(true);
   };
 

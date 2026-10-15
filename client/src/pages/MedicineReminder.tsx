@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { MedicineService, getActiveUserId } from '../services/firestoreService';
+import { formatIsoDate } from '../utils/dateUtils';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
@@ -124,14 +125,15 @@ export default function MedicineReminder() {
   };
 
   const handleEdit = (med: any) => {
+    if (!med) return;
     setFormData({
       name: med.name || '',
       form: med.form || 'Tablet',
       dosage: med.dosage || '',
       instruction: med.instruction || 'After Food',
       frequency: med.frequency || 'Daily',
-      startDate: med.startDate ? new Date(med.startDate).toISOString().split('T')[0] : '',
-      endDate: med.endDate ? new Date(med.endDate).toISOString().split('T')[0] : '',
+      startDate: formatIsoDate(med.startDate),
+      endDate: formatIsoDate(med.endDate),
       stock: med.stock !== undefined ? med.stock.toString() : '30',
       schedule: med.schedule || {
         morning: { selected: true, time: '08:00' },

@@ -9,6 +9,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { FinanceService, getActiveUserId } from '../services/firestoreService';
+import { formatIsoDate, getTodayIso } from '../utils/dateUtils';
 import { exportToCSV } from '../utils/csvExport';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { SearchFilterBar } from '../components/common/SearchFilterBar';
@@ -245,6 +246,7 @@ export default function FinanceTracker() {
 
   // Edit Transaction Click
   const handleEditTx = (tx: any) => {
+    if (!tx) return;
     setTxFormData({
       title: tx.title || '',
       amount: String(tx.amount || ''),
@@ -252,11 +254,11 @@ export default function FinanceTracker() {
       category: tx.category || 'Food & Dining',
       accountId: tx.accountId || '',
       paymentMode: tx.paymentMode || 'UPI / Online',
-      date: tx.date ? new Date(tx.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      date: formatIsoDate(tx.date, getTodayIso()),
       notes: tx.notes || '',
       receiptUrl: tx.receiptUrl || ''
     });
-    setEditTxId(tx._id);
+    setEditTxId(tx._id || tx.id);
     setShowTxModal(true);
   };
 

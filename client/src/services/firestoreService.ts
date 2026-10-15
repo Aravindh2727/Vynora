@@ -65,6 +65,21 @@ export function cleanPayload<T extends Record<string, any>>(obj: T): Partial<T> 
   return result;
 }
 
+// Safely convert any date value (Timestamp, string, Date) to ISO string without RangeError
+export function safeIsoDate(val: any, fallback = new Date().toISOString()): string {
+  if (!val) return fallback;
+  if (val instanceof Timestamp) return val.toDate().toISOString();
+  if (typeof val === 'object' && val.seconds !== undefined) {
+    return new Date(val.seconds * 1000).toISOString();
+  }
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? fallback : d.toISOString();
+  } catch {
+    return fallback;
+  }
+}
+
 // ==========================================
 // 1. FINANCE / TRANSACTIONS
 // ==========================================
@@ -92,7 +107,7 @@ export const FinanceService = {
       ...data,
       userId,
       amount: Number(data.amount) || 0,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: safeIsoDate(data.date),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -176,7 +191,7 @@ export const FinanceService = {
       notes: data.notes || '',
       fromAccountId: data.fromAccountId,
       toAccountId: data.toAccountId,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: safeIsoDate(data.date),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -258,7 +273,7 @@ export const LoanService = {
 
   async updateLoan(id: string, data: any) {
     const docRef = doc(db, 'loans', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -379,7 +394,7 @@ export const AgricultureService = {
 
   async updateCrop(id: string, data: any, userId: string) {
     const docRef = doc(db, 'crops', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     await this.syncCropFinance(userId, id, data);
     return { ...data, _id: id, id };
   },
@@ -442,7 +457,7 @@ export const AgricultureService = {
       cropId,
       userId,
       cost,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: safeIsoDate(data.date),
       createdAt: serverTimestamp()
     });
 
@@ -454,7 +469,7 @@ export const AgricultureService = {
         category: 'Agriculture',
         title: `Crop Activity - ${data.activityType || 'Field Work'} (${data.notes || ''})`,
         referenceId: cropId,
-        date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        date: safeIsoDate(data.date),
         createdAt: serverTimestamp()
       });
     }
@@ -510,7 +525,7 @@ export const DairyService = {
 
   async updateCow(id: string, data: any) {
     const docRef = doc(db, 'cows', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -709,7 +724,7 @@ export const DairyService = {
       cowId,
       userId,
       cost,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: safeIsoDate(data.date),
       createdAt: serverTimestamp()
     });
 
@@ -721,7 +736,7 @@ export const DairyService = {
         category: 'Dairy',
         title: `Veterinary / Treatment - #${data.tagNumber || cowId} (${data.treatment || 'Medical'})`,
         referenceId: docRef.id,
-        date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        date: safeIsoDate(data.date),
         createdAt: serverTimestamp()
       });
     }
@@ -805,7 +820,7 @@ export const MedicineService = {
 
   async updateMedicine(id: string, data: any) {
     const docRef = doc(db, 'medicines', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -869,7 +884,7 @@ export const BillService = {
 
   async updateBill(id: string, data: any) {
     const docRef = doc(db, 'bills', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -931,7 +946,7 @@ export const DocumentService = {
 
   async updateDocument(id: string, data: any) {
     const docRef = doc(db, 'documents', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -963,7 +978,7 @@ export const ContactService = {
 
   async updateContact(id: string, data: any) {
     const docRef = doc(db, 'contacts', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -996,7 +1011,7 @@ export const TaskService = {
 
   async updateTask(id: string, data: any) {
     const docRef = doc(db, 'tasks', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1092,7 +1107,7 @@ export const VehicleService = {
       liters: Number(data.liters) || 0,
       pricePerLiter: Number(data.pricePerLiter) || 0,
       cost,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: safeIsoDate(data.date),
       createdAt: serverTimestamp()
     });
 
@@ -1104,7 +1119,7 @@ export const VehicleService = {
         category: 'Transport',
         title: `Vehicle Fuel - ${data.vehicleName || 'Vehicle'} (${data.liters || 0}L)`,
         referenceId: docRef.id,
-        date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        date: safeIsoDate(data.date),
         createdAt: serverTimestamp()
       });
     }
@@ -1138,7 +1153,7 @@ export const VehicleService = {
       userId,
       cost,
       odometer: Number(data.odometer) || 0,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: safeIsoDate(data.date),
       createdAt: serverTimestamp()
     });
 
@@ -1150,7 +1165,7 @@ export const VehicleService = {
         category: 'Transport',
         title: `Vehicle Service - ${data.vehicleName || 'Vehicle'} (${data.serviceType || 'Maintenance'})`,
         referenceId: docRef.id,
-        date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        date: safeIsoDate(data.date),
         createdAt: serverTimestamp()
       });
     }
@@ -1192,7 +1207,7 @@ export const StudentService = {
 
   async updateItem(id: string, data: any) {
     const docRef = doc(db, 'student_items', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1220,7 +1235,7 @@ export const StudentService = {
 
   async updateCourse(id: string, data: any) {
     const docRef = doc(db, 'student_courses', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1310,7 +1325,7 @@ export const PasswordService = {
 
   async updatePassword(id: string, data: any) {
     const docRef = doc(db, 'passwords', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1342,7 +1357,7 @@ export const FamilyService = {
 
   async updatePost(id: string, data: any) {
     const docRef = doc(db, 'family_posts', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1372,7 +1387,7 @@ export const FamilyService = {
 
   async updateMember(id: string, data: any) {
     const docRef = doc(db, 'family_members', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1401,7 +1416,7 @@ export const FamilyService = {
 
   async updateChore(id: string, data: any) {
     const docRef = doc(db, 'family_chores', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1426,6 +1441,12 @@ export const FamilyService = {
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
+  async updateFamilyEvent(id: string, data: any) {
+    const docRef = doc(db, 'family_events', id);
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    return { ...data, _id: id, id };
+  },
+
   async deleteFamilyEvent(id: string) {
     await deleteDoc(doc(db, 'family_events', id));
     return { message: 'Deleted' };
@@ -1448,6 +1469,13 @@ export const FamilyService = {
       createdAt: serverTimestamp()
     });
     return { ...data, _id: docRef.id, id: docRef.id };
+  },
+
+  async updateSharedExpense(id: string, data: any) {
+    const docRef = doc(db, 'family_expenses', id);
+    const amount = Number(data.amount) || 0;
+    await updateDoc(docRef, cleanPayload({ ...data, amount, updatedAt: serverTimestamp() }));
+    return { ...data, _id: id, id };
   },
 
   async deleteSharedExpense(id: string) {
@@ -1478,7 +1506,7 @@ export const HealthService = {
 
   async updateRecord(id: string, data: any) {
     const docRef = doc(db, 'health_records', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 
@@ -1555,7 +1583,7 @@ export const GoalService = {
 
   async updateGoal(id: string, data: any) {
     const docRef = doc(db, 'goals', id);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     return { ...data, _id: id, id };
   },
 

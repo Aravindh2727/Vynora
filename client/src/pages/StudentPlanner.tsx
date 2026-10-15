@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { StudentService, getActiveUserId } from '../services/firestoreService';
+import { formatIsoDate } from '../utils/dateUtils';
 import { calculateDaysRemaining } from '../utils/calculations';
 import { exportToCSV } from '../utils/csvExport';
 import { FileUpload } from '../components/common/FileUpload';
@@ -182,17 +183,18 @@ export default function StudentPlanner() {
   };
 
   const handleEditItem = (item: any) => {
+    if (!item) return;
     setItemFormData({
       title: item.title || '',
       subject: item.subject || '',
       type: item.type || 'Assignment',
       priority: item.priority || 'High',
-      dueDate: item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : '',
+      dueDate: formatIsoDate(item.dueDate),
       description: item.description || '',
       status: item.status || 'Pending',
       attachmentUrl: item.attachmentUrl || ''
     });
-    setEditItemId(item._id);
+    setEditItemId(item._id || item.id);
     setShowItemModal(true);
   };
 

@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { HealthService, getActiveUserId } from '../services/firestoreService';
 import { calculateBMI } from '../utils/calculations';
+import { formatIsoDate, getTodayIso } from '../utils/dateUtils';
 import { exportToCSV } from '../utils/csvExport';
 import { FileUpload } from '../components/common/FileUpload';
 import { ConfirmModal } from '../components/common/ConfirmModal';
@@ -124,7 +125,7 @@ export default function HealthRecords() {
         ...vitalFormData,
         value: displayValue,
         extraMeta,
-        date: vitalFormData.date ? new Date(vitalFormData.date).toISOString() : new Date().toISOString()
+        date: formatIsoDate(vitalFormData.date) || getTodayIso()
       };
 
       if (editVitalId) {
@@ -151,6 +152,25 @@ export default function HealthRecords() {
       weightKg: '', heightCm: '',
       notes: '', reportUrl: ''
     });
+  };
+
+  const handleEditVital = (r: any) => {
+    if (!r) return;
+    setVitalFormData({
+      recordType: r.recordType || 'Blood Pressure',
+      date: formatIsoDate(r.date, getTodayIso()),
+      systolic: r.extraMeta?.systolic ? String(r.extraMeta.systolic) : '',
+      diastolic: r.extraMeta?.diastolic ? String(r.extraMeta.diastolic) : '',
+      pulse: r.extraMeta?.pulse ? String(r.extraMeta.pulse) : '',
+      sugarValue: r.extraMeta?.sugarValue ? String(r.extraMeta.sugarValue) : '',
+      sugarContext: r.extraMeta?.sugarContext || 'Fasting',
+      weightKg: r.extraMeta?.weightKg ? String(r.extraMeta.weightKg) : '',
+      heightCm: r.extraMeta?.heightCm ? String(r.extraMeta.heightCm) : '',
+      notes: r.notes || '',
+      reportUrl: r.reportUrl || ''
+    });
+    setEditVitalId(r._id || r.id);
+    setShowVitalsModal(true);
   };
 
   // Save Doctor Visit
@@ -344,7 +364,14 @@ export default function HealthRecords() {
 
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => setDeleteTarget({ id: r._id, type: 'vital' })}
+                          onClick={() => handleEditVital(r)}
+                          className="p-1 text-textMuted hover:text-primary transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget({ id: r._id || r.id, type: 'vital' })}
                           className="p-1 text-textMuted hover:text-red-400 transition-colors"
                           title="Delete"
                         >

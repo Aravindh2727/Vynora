@@ -11,6 +11,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { formatIsoDate, getTodayIso } from '../utils/dateUtils';
 import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 export default function FamilyDashboard() {
@@ -28,12 +29,16 @@ export default function FamilyDashboard() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modals
+  // Modals & Edit IDs
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showChoreModal, setShowChoreModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [editMemberId, setEditMemberId] = useState<string | null>(null);
+  const [editChoreId, setEditChoreId] = useState<string | null>(null);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editExpenseId, setEditExpenseId] = useState<string | null>(null);
 
   // Confirm delete modal
   const [deleteModal, setDeleteModal] = useState<{
@@ -62,14 +67,14 @@ export default function FamilyDashboard() {
   const [choreForm, setChoreForm] = useState({
     title: '',
     assignedTo: 'Anyone',
-    dueDate: new Date().toISOString().split('T')[0],
+    dueDate: getTodayIso(),
     isCompleted: false
   });
 
   const [eventForm, setEventForm] = useState({
     title: '',
     type: 'Birthday',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayIso(),
     person: ''
   });
 
@@ -78,7 +83,7 @@ export default function FamilyDashboard() {
     amount: '',
     paidBy: 'Head of House',
     category: 'Groceries',
-    date: new Date().toISOString().split('T')[0]
+    date: getTodayIso()
   });
 
   useEffect(() => {
@@ -126,12 +131,30 @@ export default function FamilyDashboard() {
   };
 
   // Member CRUD
+  const handleEditMember = (member: any) => {
+    setMemberForm({
+      name: member.name || '',
+      relation: member.relation || 'Spouse',
+      phone: member.phone || '',
+      email: member.email || '',
+      bloodGroup: member.bloodGroup || 'O+',
+      dateOfBirth: formatIsoDate(member.dateOfBirth)
+    });
+    setEditMemberId(member._id || member.id);
+    setShowMemberModal(true);
+  };
+
   const handleSaveMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!memberForm.name.trim()) return;
     try {
-      await FamilyService.addMember(activeUid, memberForm);
+      if (editMemberId) {
+        await FamilyService.updateMember(editMemberId, memberForm);
+      } else {
+        await FamilyService.addMember(activeUid, memberForm);
+      }
       setShowMemberModal(false);
+      setEditMemberId(null);
       setMemberForm({ name: '', relation: 'Spouse', phone: '', email: '', bloodGroup: 'O+', dateOfBirth: '' });
       fetchData();
     } catch (e) {
@@ -140,13 +163,29 @@ export default function FamilyDashboard() {
   };
 
   // Chore CRUD
+  const handleEditChore = (chore: any) => {
+    setChoreForm({
+      title: chore.title || '',
+      assignedTo: chore.assignedTo || 'Anyone',
+      dueDate: formatIsoDate(chore.dueDate) || getTodayIso(),
+      isCompleted: Boolean(chore.isCompleted)
+    });
+    setEditChoreId(chore._id || chore.id);
+    setShowChoreModal(true);
+  };
+
   const handleSaveChore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!choreForm.title.trim()) return;
     try {
-      await FamilyService.addChore(activeUid, choreForm);
+      if (editChoreId) {
+        await FamilyService.updateChore(editChoreId, choreForm);
+      } else {
+        await FamilyService.addChore(activeUid, choreForm);
+      }
       setShowChoreModal(false);
-      setChoreForm({ title: '', assignedTo: 'Anyone', dueDate: new Date().toISOString().split('T')[0], isCompleted: false });
+      setEditChoreId(null);
+      setChoreForm({ title: '', assignedTo: 'Anyone', dueDate: getTodayIso(), isCompleted: false });
       fetchData();
     } catch (e) {
       console.error('Error saving chore:', e);
@@ -165,13 +204,29 @@ export default function FamilyDashboard() {
   };
 
   // Event CRUD
+  const handleEditEvent = (ev: any) => {
+    setEventForm({
+      title: ev.title || '',
+      type: ev.type || 'Birthday',
+      date: formatIsoDate(ev.date) || getTodayIso(),
+      person: ev.person || ''
+    });
+    setEditEventId(ev._id || ev.id);
+    setShowEventModal(true);
+  };
+
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventForm.title.trim()) return;
     try {
-      await FamilyService.addFamilyEvent(activeUid, eventForm);
+      if (editEventId) {
+        await FamilyService.updateFamilyEvent(editEventId, eventForm);
+      } else {
+        await FamilyService.addFamilyEvent(activeUid, eventForm);
+      }
       setShowEventModal(false);
-      setEventForm({ title: '', type: 'Birthday', date: new Date().toISOString().split('T')[0], person: '' });
+      setEditEventId(null);
+      setEventForm({ title: '', type: 'Birthday', date: getTodayIso(), person: '' });
       fetchData();
     } catch (e) {
       console.error('Error saving event:', e);
@@ -179,16 +234,34 @@ export default function FamilyDashboard() {
   };
 
   // Expense CRUD
+  const handleEditExpense = (exp: any) => {
+    setExpenseForm({
+      description: exp.description || '',
+      amount: String(exp.amount || ''),
+      paidBy: exp.paidBy || 'Head of House',
+      category: exp.category || 'Groceries',
+      date: formatIsoDate(exp.date) || getTodayIso()
+    });
+    setEditExpenseId(exp._id || exp.id);
+    setShowExpenseModal(true);
+  };
+
   const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expenseForm.description.trim()) return;
     try {
-      await FamilyService.addSharedExpense(activeUid, {
+      const payload = {
         ...expenseForm,
         amount: Number(expenseForm.amount) || 0
-      });
+      };
+      if (editExpenseId) {
+        await FamilyService.updateSharedExpense(editExpenseId, payload);
+      } else {
+        await FamilyService.addSharedExpense(activeUid, payload);
+      }
       setShowExpenseModal(false);
-      setExpenseForm({ description: '', amount: '', paidBy: 'Head of House', category: 'Groceries', date: new Date().toISOString().split('T')[0] });
+      setEditExpenseId(null);
+      setExpenseForm({ description: '', amount: '', paidBy: 'Head of House', category: 'Groceries', date: getTodayIso() });
       fetchData();
     } catch (e) {
       console.error('Error saving expense:', e);
@@ -263,7 +336,11 @@ export default function FamilyDashboard() {
               <Download size={15} /> <span className="hidden sm:inline">Export</span> CSV
             </button>
             <button
-              onClick={() => setShowMemberModal(true)}
+              onClick={() => {
+                setEditMemberId(null);
+                setMemberForm({ name: '', relation: 'Spouse', phone: '', email: '', bloodGroup: 'O+', dateOfBirth: '' });
+                setShowMemberModal(true);
+              }}
               className="min-h-[44px] bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs sm:text-sm touch-target"
             >
               <Plus size={16} /> <span>Add Member</span>
@@ -473,7 +550,11 @@ export default function FamilyDashboard() {
               <Users size={20} className="text-primary" /> Household Members ({members.length})
             </h2>
             <button
-              onClick={() => setShowMemberModal(true)}
+              onClick={() => {
+                setEditMemberId(null);
+                setMemberForm({ name: '', relation: 'Spouse', phone: '', email: '', bloodGroup: 'O+', dateOfBirth: '' });
+                setShowMemberModal(true);
+              }}
               className="bg-primary text-background px-3 py-1.5 rounded-lg text-xs font-bold shadow-neon-primary-sm hover:opacity-95 flex items-center gap-1"
             >
               <Plus size={14} /> Add Member
@@ -486,7 +567,11 @@ export default function FamilyDashboard() {
               title="No family members added"
               description="Add your spouse, children, parents, and siblings to assign chores and share calendars."
               actionText="Add Family Member"
-              onAction={() => setShowMemberModal(true)}
+              onAction={() => {
+                setEditMemberId(null);
+                setMemberForm({ name: '', relation: 'Spouse', phone: '', email: '', bloodGroup: 'O+', dateOfBirth: '' });
+                setShowMemberModal(true);
+              }}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -506,24 +591,34 @@ export default function FamilyDashboard() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => setDeleteModal({
-                        isOpen: true,
-                        type: 'member',
-                        id: member._id || member.id,
-                        title: member.name
-                      })}
-                      className="p-1 rounded text-textMuted hover:text-red-400"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEditMember(member)}
+                        className="p-1 rounded text-textMuted hover:text-primary transition-colors"
+                        title="Edit Member"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteModal({
+                          isOpen: true,
+                          type: 'member',
+                          id: member._id || member.id,
+                          title: member.name
+                        })}
+                        className="p-1 rounded text-textMuted hover:text-red-400 transition-colors"
+                        title="Delete Member"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="bg-surface/50 p-3 rounded-xl border border-glass space-y-1.5 text-xs text-textMuted">
                     {member.phone && <div className="flex justify-between"><span>Phone:</span><span className="text-textMain">{member.phone}</span></div>}
                     {member.email && <div className="flex justify-between"><span>Email:</span><span className="text-textMain">{member.email}</span></div>}
                     {member.bloodGroup && <div className="flex justify-between"><span>Blood Group:</span><span className="text-red-400 font-semibold">{member.bloodGroup}</span></div>}
-                    {member.dateOfBirth && <div className="flex justify-between"><span>Birthday:</span><span className="text-textMain">{new Date(member.dateOfBirth).toLocaleDateString()}</span></div>}
+                    {member.dateOfBirth && <div className="flex justify-between"><span>Birthday:</span><span className="text-textMain">{formatIsoDate(member.dateOfBirth)}</span></div>}
                   </div>
                 </div>
               ))}
@@ -540,7 +635,11 @@ export default function FamilyDashboard() {
               <CheckSquare size={20} className="text-amber-400" /> Household Chores
             </h2>
             <button
-              onClick={() => setShowChoreModal(true)}
+              onClick={() => {
+                setEditChoreId(null);
+                setChoreForm({ title: '', assignedTo: 'Anyone', dueDate: getTodayIso(), isCompleted: false });
+                setShowChoreModal(true);
+              }}
               className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-amber-500/30"
             >
               <Plus size={14} /> Assign Chore
@@ -553,7 +652,11 @@ export default function FamilyDashboard() {
               title="No chores assigned yet"
               description="Keep the house organized by assigning chores to family members with due dates."
               actionText="Assign First Chore"
-              onAction={() => setShowChoreModal(true)}
+              onAction={() => {
+                setEditChoreId(null);
+                setChoreForm({ title: '', assignedTo: 'Anyone', dueDate: getTodayIso(), isCompleted: false });
+                setShowChoreModal(true);
+              }}
             />
           ) : (
             <div className="space-y-2">
@@ -582,22 +685,32 @@ export default function FamilyDashboard() {
                         {chore.title}
                       </h4>
                       <p className="text-[11px] text-textMuted">
-                        Assigned to: <strong className="text-primary">{chore.assignedTo || 'Anyone'}</strong> • Due: {new Date(chore.dueDate).toLocaleDateString()}
+                        Assigned to: <strong className="text-primary">{chore.assignedTo || 'Anyone'}</strong> • Due: {formatIsoDate(chore.dueDate) || 'No date'}
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => setDeleteModal({
-                      isOpen: true,
-                      type: 'chore',
-                      id: chore._id || chore.id,
-                      title: chore.title
-                    })}
-                    className="text-textMuted hover:text-red-400 p-1"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleEditChore(chore)}
+                      className="p-1 rounded text-textMuted hover:text-primary transition-colors"
+                      title="Edit Chore"
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteModal({
+                        isOpen: true,
+                        type: 'chore',
+                        id: chore._id || chore.id,
+                        title: chore.title
+                      })}
+                      className="text-textMuted hover:text-red-400 p-1 transition-colors"
+                      title="Delete Chore"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -613,7 +726,11 @@ export default function FamilyDashboard() {
               <Calendar size={20} className="text-blue-400" /> Important Family Dates & Events
             </h2>
             <button
-              onClick={() => setShowEventModal(true)}
+              onClick={() => {
+                setEditEventId(null);
+                setEventForm({ title: '', type: 'Birthday', date: getTodayIso(), person: '' });
+                setShowEventModal(true);
+              }}
               className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-blue-500/30"
             >
               <Plus size={14} /> Add Event
@@ -626,13 +743,18 @@ export default function FamilyDashboard() {
               title="No family dates saved"
               description="Never forget birthdays, wedding anniversaries, parent doctor checkups, or festival plans."
               actionText="Add Family Event"
-              onAction={() => setShowEventModal(true)}
+              onAction={() => {
+                setEditEventId(null);
+                setEventForm({ title: '', type: 'Birthday', date: getTodayIso(), person: '' });
+                setShowEventModal(true);
+              }}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {events.map(ev => {
-                const eventDate = new Date(ev.date);
-                const diffDays = Math.ceil((eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const safeIso = formatIsoDate(ev.date);
+                const eventDate = safeIso ? new Date(safeIso) : null;
+                const diffDays = eventDate ? Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
                 return (
                   <div key={ev._id || ev.id} className="glass-panel p-5 border-l-4 border-l-blue-400 flex flex-col justify-between">
@@ -641,26 +763,36 @@ export default function FamilyDashboard() {
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">
                           {ev.type}
                         </span>
-                        <button
-                          onClick={() => setDeleteModal({
-                            isOpen: true,
-                            type: 'event',
-                            id: ev._id || ev.id,
-                            title: ev.title
-                          })}
-                          className="text-textMuted hover:text-red-400"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditEvent(ev)}
+                            className="p-1 rounded text-textMuted hover:text-primary transition-colors"
+                            title="Edit Event"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({
+                              isOpen: true,
+                              type: 'event',
+                              id: ev._id || ev.id,
+                              title: ev.title
+                            })}
+                            className="p-1 rounded text-textMuted hover:text-red-400 transition-colors"
+                            title="Delete Event"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
 
                       <h3 className="text-base font-bold text-textMain mb-1">{ev.title}</h3>
                       {ev.person && <p className="text-xs text-textMuted mb-2">For: {ev.person}</p>}
 
                       <div className="flex justify-between items-center text-xs pt-2 border-t border-glass">
-                        <span className="text-textMuted">{eventDate.toLocaleDateString()}</span>
+                        <span className="text-textMuted">{safeIso || 'No date'}</span>
                         <span className="font-bold text-blue-400">
-                          {diffDays === 0 ? 'Today!' : diffDays > 0 ? `In ${diffDays} days` : 'Past date'}
+                          {diffDays === null ? '' : diffDays === 0 ? 'Today!' : diffDays > 0 ? `In ${diffDays} days` : 'Past date'}
                         </span>
                       </div>
                     </div>
@@ -683,7 +815,11 @@ export default function FamilyDashboard() {
               <p className="text-xs text-textMuted mt-1">Total recorded spend: ₹{totalSharedSpend.toLocaleString()}</p>
             </div>
             <button
-              onClick={() => setShowExpenseModal(true)}
+              onClick={() => {
+                setEditExpenseId(null);
+                setExpenseForm({ description: '', amount: '', paidBy: 'Head of House', category: 'Groceries', date: getTodayIso() });
+                setShowExpenseModal(true);
+              }}
               className="bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-green-500/30"
             >
               <Plus size={14} /> Log Shared Expense
@@ -696,7 +832,11 @@ export default function FamilyDashboard() {
               title="No shared expenses logged"
               description="Track common groceries, internet bills, domestic help salary, and maintenance splits."
               actionText="Log First Expense"
-              onAction={() => setShowExpenseModal(true)}
+              onAction={() => {
+                setEditExpenseId(null);
+                setExpenseForm({ description: '', amount: '', paidBy: 'Head of House', category: 'Groceries', date: getTodayIso() });
+                setShowExpenseModal(true);
+              }}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -714,23 +854,33 @@ export default function FamilyDashboard() {
                 <tbody>
                   {expenses.map(exp => (
                     <tr key={exp._id || exp.id} className="border-b border-glass/40 hover:bg-surface/50 transition-colors">
-                      <td className="py-3 px-4">{new Date(exp.date).toLocaleDateString()}</td>
+                      <td className="py-3 px-4">{formatIsoDate(exp.date)}</td>
                       <td className="py-3 px-4 font-medium text-textMain">{exp.description}</td>
                       <td className="py-3 px-4 text-xs text-textMuted">{exp.category}</td>
                       <td className="py-3 px-4 text-xs font-semibold text-primary">{exp.paidBy}</td>
                       <td className="py-3 px-4 text-right font-bold text-green-400">₹{(Number(exp.amount) || 0).toLocaleString()}</td>
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => setDeleteModal({
-                            isOpen: true,
-                            type: 'expense',
-                            id: exp._id || exp.id,
-                            title: exp.description
-                          })}
-                          className="text-textMuted hover:text-red-400"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleEditExpense(exp)}
+                            className="p-1 rounded text-textMuted hover:text-primary transition-colors"
+                            title="Edit Expense"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({
+                              isOpen: true,
+                              type: 'expense',
+                              id: exp._id || exp.id,
+                              title: exp.description
+                            })}
+                            className="p-1 rounded text-textMuted hover:text-red-400 transition-colors"
+                            title="Delete Expense"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -746,7 +896,7 @@ export default function FamilyDashboard() {
         {showMemberModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowMemberModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Add Family Member</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editMemberId ? 'Edit Family Member' : 'Add Family Member'}</h2>
               <form onSubmit={handleSaveMember} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -818,7 +968,7 @@ export default function FamilyDashboard() {
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
                   <button type="button" onClick={() => setShowMemberModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-primary text-background rounded-lg font-bold text-sm shadow-neon-primary-sm hover:opacity-95">
-                    Save Member
+                    {editMemberId ? 'Update Member' : 'Save Member'}
                   </button>
                 </div>
               </form>
@@ -832,7 +982,7 @@ export default function FamilyDashboard() {
         {showChoreModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowChoreModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Assign Family Chore</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editChoreId ? 'Edit Family Chore' : 'Assign Family Chore'}</h2>
               <form onSubmit={handleSaveChore} className="space-y-4">
                 <div>
                   <label className="text-xs text-textMuted mb-1 block">Chore Task *</label>
@@ -874,7 +1024,7 @@ export default function FamilyDashboard() {
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
                   <button type="button" onClick={() => setShowChoreModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-amber-500 text-white rounded-lg font-bold text-sm shadow-md hover:bg-amber-600">
-                    Assign Chore
+                    {editChoreId ? 'Update Chore' : 'Assign Chore'}
                   </button>
                 </div>
               </form>
@@ -888,7 +1038,7 @@ export default function FamilyDashboard() {
         {showEventModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowEventModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Add Family Event / Date</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editEventId ? 'Edit Family Event / Date' : 'Add Family Event / Date'}</h2>
               <form onSubmit={handleSaveEvent} className="space-y-4">
                 <div>
                   <label className="text-xs text-textMuted mb-1 block">Event Title *</label>
@@ -943,7 +1093,7 @@ export default function FamilyDashboard() {
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
                   <button type="button" onClick={() => setShowEventModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm shadow-md hover:bg-blue-600">
-                    Save Event
+                    {editEventId ? 'Update Event' : 'Save Event'}
                   </button>
                 </div>
               </form>
@@ -957,7 +1107,7 @@ export default function FamilyDashboard() {
         {showExpenseModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowExpenseModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Log Shared Household Expense</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editExpenseId ? 'Edit Shared Household Expense' : 'Log Shared Household Expense'}</h2>
               <form onSubmit={handleSaveExpense} className="space-y-4">
                 <div>
                   <label className="text-xs text-textMuted mb-1 block">Expense Description *</label>
@@ -1028,7 +1178,7 @@ export default function FamilyDashboard() {
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
                   <button type="button" onClick={() => setShowExpenseModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-green-500 text-white rounded-lg font-bold text-sm shadow-md hover:bg-green-600">
-                    Save Expense
+                    {editExpenseId ? 'Update Expense' : 'Save Expense'}
                   </button>
                 </div>
               </form>

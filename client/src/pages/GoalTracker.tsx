@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { clampGoalProgress } from '../utils/calculations';
+import { formatIsoDate } from '../utils/dateUtils';
 import { GoalService, getActiveUserId } from '../services/firestoreService';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
@@ -129,6 +130,7 @@ export default function GoalTracker() {
   };
 
   const handleEdit = (goal: any) => {
+    if (!goal) return;
     setFormData({
       title: goal.title || '',
       category: goal.category || 'Financial',
@@ -136,7 +138,7 @@ export default function GoalTracker() {
       targetValue: goal.targetValue?.toString() || '100000',
       currentValue: goal.currentValue?.toString() || '0',
       unitName: goal.unitName || '₹',
-      targetDate: goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : '',
+      targetDate: formatIsoDate(goal.targetDate),
       milestones: Array.isArray(goal.milestones) ? goal.milestones : [],
       notes: goal.notes || '',
       attachmentUrl: goal.attachmentUrl || ''

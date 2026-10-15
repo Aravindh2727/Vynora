@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { DocumentService, getActiveUserId } from '../services/firestoreService';
+import { formatIsoDate } from '../utils/dateUtils';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
@@ -117,12 +118,13 @@ export default function DigitalLocker() {
   };
 
   const handleEdit = (doc: any) => {
+    if (!doc) return;
     setFormData({
       title: doc.title || '',
       category: doc.category || 'Identity',
       docNumber: doc.docNumber || '',
-      issueDate: doc.issueDate ? new Date(doc.issueDate).toISOString().split('T')[0] : '',
-      expiryDate: doc.expiryDate ? new Date(doc.expiryDate).toISOString().split('T')[0] : '',
+      issueDate: formatIsoDate(doc.issueDate),
+      expiryDate: formatIsoDate(doc.expiryDate),
       tags: Array.isArray(doc.tags) ? doc.tags.join(', ') : '',
       description: doc.description || '',
       fileUrl: doc.fileUrl || ''

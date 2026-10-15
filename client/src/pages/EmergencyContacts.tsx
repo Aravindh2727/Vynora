@@ -95,6 +95,7 @@ export default function EmergencyContacts() {
   };
 
   const handleEdit = (c: any) => {
+    if (!c) return;
     setFormData({
       name: c.name || '',
       relation: c.relation || '',
@@ -107,7 +108,7 @@ export default function EmergencyContacts() {
       medicalNotes: c.medicalNotes || '',
       isEmergency: Boolean(c.isEmergency)
     });
-    setEditId(c._id);
+    setEditId(c._id || c.id);
     setShowModal(true);
   };
 

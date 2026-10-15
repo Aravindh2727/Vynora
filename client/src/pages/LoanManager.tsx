@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { calculateEMI, calculateAmortizationSchedule } from '../utils/calculations';
+import { formatIsoDate } from '../utils/dateUtils';
 import { LoanService, getActiveUserId } from '../services/firestoreService';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
@@ -131,15 +132,16 @@ export default function LoanManager() {
 
   const handleEdit = (e: React.MouseEvent, loan: any) => {
     e.stopPropagation();
+    if (!loan) return;
     setFormData({
       loanName: loan.loanName || '',
       loanType: loan.loanType || 'Home Loan',
       lenderName: loan.lenderName || '',
       accountNumber: loan.accountNumber || '',
       principalAmount: loan.principalAmount?.toString() || '',
-      disbursalDate: loan.disbursalDate ? new Date(loan.disbursalDate).toISOString().split('T')[0] : '',
-      startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : '',
-      endDate: loan.endDate ? new Date(loan.endDate).toISOString().split('T')[0] : '',
+      disbursalDate: formatIsoDate(loan.disbursalDate),
+      startDate: formatIsoDate(loan.startDate),
+      endDate: formatIsoDate(loan.endDate),
       interestRate: loan.interestRate?.toString() || '8.5',
       monthlyPay: loan.monthlyPay?.toString() || '',
       documentUrl: loan.documentUrl || '',

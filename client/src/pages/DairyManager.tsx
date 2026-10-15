@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { calculateDairyYield, calculateDairyRevenue, calculateDairyExpenses } from '../utils/calculations';
+import { formatIsoDate } from '../utils/dateUtils';
 import { DairyService } from '../services/firestoreService';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
@@ -173,14 +174,15 @@ export default function DairyManager() {
   };
 
   const handleEditCow = (cow: any) => {
+    if (!cow) return;
     setCowData({
       tagNumber: cow.tagNumber || '',
       name: cow.name || '',
       breed: cow.breed || 'Jersey',
       dailyFoodCost: cow.dailyFoodCost?.toString() || '',
       purchasePrice: cow.purchasePrice?.toString() || '',
-      purchaseDate: cow.purchaseDate ? new Date(cow.purchaseDate).toISOString().split('T')[0] : '',
-      dateOfBirth: cow.dateOfBirth ? new Date(cow.dateOfBirth).toISOString().split('T')[0] : '',
+      purchaseDate: formatIsoDate(cow.purchaseDate),
+      dateOfBirth: formatIsoDate(cow.dateOfBirth),
       lactationStatus: cow.lactationStatus || 'Lactating',
       imageUrl: cow.imageUrl || ''
     });
@@ -727,7 +729,7 @@ export default function DairyManager() {
                               session: log.session || 'Morning',
                               litersProduced: log.litersProduced?.toString() || '',
                               ratePerLiter: log.ratePerLiter?.toString() || '40',
-                              date: log.date ? new Date(log.date).toISOString().split('T')[0] : '',
+                              date: formatIsoDate(log.date),
                               fatPercentage: log.fatPercentage?.toString() || '4.2',
                               buyer: log.buyer || 'Dairy Cooperative'
                             });

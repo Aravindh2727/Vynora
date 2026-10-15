@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { isBillOverdue } from '../utils/calculations';
+import { formatIsoDate } from '../utils/dateUtils';
 import { BillService, getActiveUserId } from '../services/firestoreService';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
@@ -119,13 +120,14 @@ export default function BillReminder() {
   };
 
   const handleEdit = (bill: any) => {
+    if (!bill) return;
     setFormData({
       name: bill.name || '',
       billerProvider: bill.billerProvider || '',
       accountNumber: bill.accountNumber || '',
       category: bill.category || 'Electricity',
       amount: bill.amount?.toString() || '',
-      dueDate: bill.dueDate ? new Date(bill.dueDate).toISOString().split('T')[0] : '',
+      dueDate: formatIsoDate(bill.dueDate),
       frequency: bill.frequency || 'Monthly',
       autoDebit: Boolean(bill.autoDebit),
       notes: bill.notes || '',

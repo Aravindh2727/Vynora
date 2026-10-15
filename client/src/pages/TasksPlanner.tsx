@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { TaskService, getActiveUserId } from '../services/firestoreService';
+import { formatIsoDate } from '../utils/dateUtils';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
@@ -114,13 +115,14 @@ export default function TasksPlanner() {
   };
 
   const handleEdit = (task: any) => {
+    if (!task) return;
     setFormData({
       title: task.title || '',
       description: task.description || '',
       status: task.status || 'Todo',
       priority: task.priority || 'Medium',
       category: task.category || 'Work',
-      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+      dueDate: formatIsoDate(task.dueDate),
       recurrence: task.recurrence || 'None',
       attachmentUrl: task.attachmentUrl || '',
       subtasks: Array.isArray(task.subtasks) ? task.subtasks : []

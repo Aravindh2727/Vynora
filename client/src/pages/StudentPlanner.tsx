@@ -13,6 +13,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { SearchFilterBar } from '../components/common/SearchFilterBar';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -209,58 +210,62 @@ export default function StudentPlanner() {
   const completedCount = items.filter(i => i.status === 'Completed').length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <GraduationCap className="text-primary" size={28} /> Student Planner
-          </h1>
-          <p className="text-textMuted">Track exams, assignments, project deliverables, and weekly class timetables.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => exportToCSV(items, 'Vynora_Academic_Schedule')}
-            className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
-          >
-            <Download size={16} /> Export Schedule
-          </button>
-          <button
-            onClick={() => setShowCourseModal(true)}
-            className="px-3.5 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-sm font-medium flex items-center gap-2 hover:bg-primary/20"
-          >
-            <BookOpen size={16} /> Add Course
-          </button>
-          <button
-            onClick={() => { setEditItemId(null); setItemFormData({ title: '', subject: '', type: 'Assignment', priority: 'High', dueDate: new Date().toISOString().split('T')[0], description: '', status: 'Pending', attachmentUrl: '' }); setShowItemModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 font-medium text-sm shadow-neon-primary-sm"
-          >
-            <Plus size={18} /> Add Task / Exam
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Student Planner"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<GraduationCap className="text-indigo-400" size={24} />}
+        subtitle="Track exams, assignments, project deliverables, and weekly class timetables."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => exportToCSV(items, 'Vynora_Academic_Schedule')}
+              className="px-3 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-xs font-medium flex items-center gap-1.5 min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCourseModal(true)}
+              className="px-3 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-xs font-semibold flex items-center gap-1.5 hover:bg-primary/20 min-h-[44px]"
+            >
+              <BookOpen size={14} /> Add Subject
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditItemId(null); setItemFormData({ title: '', subject: '', type: 'Assignment', priority: 'High', dueDate: new Date().toISOString().split('T')[0], description: '', status: 'Pending', attachmentUrl: '' }); setShowItemModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 font-bold text-xs shadow-neon-primary-sm min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Task
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="glass-panel p-5 border-t-4 border-t-primary">
-          <span className="text-xs text-textMuted font-medium">Enrolled Courses</span>
-          <div className="text-2xl font-bold text-textMain mt-1">{courses.length} Subjects</div>
-          <p className="text-[11px] text-textMuted mt-1">Active semester load</p>
+      {/* KPI Row (Responsive grid) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-primary">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Courses</span>
+          <div className="text-base sm:text-2xl font-bold text-textMain mt-0.5">{courses.length} Subjects</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Active load</p>
         </div>
-        <div className="glass-panel p-5 border-t-4 border-t-yellow-400">
-          <span className="text-xs text-textMuted font-medium">Pending Tasks & Exams</span>
-          <div className="text-2xl font-bold text-yellow-400 mt-1">{pendingCount} Action Items</div>
-          <p className="text-[11px] text-textMuted mt-1">Due soon</p>
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-yellow-400">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Pending Items</span>
+          <div className="text-base sm:text-2xl font-bold text-yellow-400 mt-0.5">{pendingCount} Due</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Exams & tasks</p>
         </div>
-        <div className="glass-panel p-5 border-t-4 border-t-green-400">
-          <span className="text-xs text-textMuted font-medium">Completed Submissions</span>
-          <div className="text-2xl font-bold text-green-400 mt-1">{completedCount} Finished</div>
-          <p className="text-[11px] text-textMuted mt-1">Submissions & cleared exams</p>
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-green-400">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Completed</span>
+          <div className="text-base sm:text-2xl font-bold text-green-400 mt-0.5">{completedCount} Done</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Cleared exams</p>
         </div>
-        <div className="glass-panel p-5 border-t-4 border-t-purple-400">
-          <span className="text-xs text-textMuted font-medium">Scheduled Classes</span>
-          <div className="text-2xl font-bold text-purple-400 mt-1">{timetable.length} Sessions</div>
-          <p className="text-[11px] text-textMuted mt-1">In weekly timetable</p>
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-purple-400">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Classes</span>
+          <div className="text-base sm:text-2xl font-bold text-purple-400 mt-0.5">{timetable.length} Sessions</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Weekly timetable</p>
         </div>
       </div>
 

@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, CreditCard, FileText, CheckSquare, Box, Settings, Search, Bell,
   User, Sparkles, LogOut, Pill, Receipt, AlertTriangle, Tractor, FileDigit,
-  Car, GraduationCap, Key, Users, HeartPulse, Target, BarChart, Menu, Banknote
+  Car, GraduationCap, Key, Users, HeartPulse, Target, BarChart, Banknote,
+  Sun, Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import { useContextEngineStore } from './store/useContextEngineStore';
+import { NavigationProvider } from './context/NavigationContext';
 import Dashboard from './pages/Dashboard';
 import FinanceTracker from './pages/FinanceTracker';
 import DigitalLocker from './pages/DigitalLocker';
@@ -30,24 +32,25 @@ import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import LoanManager from './pages/LoanManager';
+import AIAssistant from './pages/AIAssistant';
 import ProtectedRoute from './components/ProtectedRoute';
-import AIChatWidget from './components/AIChatWidget';
+import { BottomNav } from './components/common/BottomNav';
 
-function App() {
+export function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [isPinned, setIsPinned] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { dispatchIntent, aiStatus, user, setUser, authLoading, setAuthLoading } = useContextEngineStore();
+  const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const { dispatchIntent, aiStatus, user, setUser, setAuthLoading } = useContextEngineStore();
 
-  const isSidebarOpen = isMobile ? true : (isPinned || isHovered);
+  const isDesktopSidebarOpen = isPinned || isHovered;
+  const isDashboard = location.pathname === '/';
 
   // Global Theme Initialization
-  React.useEffect(() => {
+  useEffect(() => {
     const theme = localStorage.getItem('theme') || 'dark';
     const accentColor = localStorage.getItem('accentColor') || '#00f2fe';
     const root = window.document.documentElement;
@@ -70,13 +73,19 @@ function App() {
     }
   }, []);
 
-  React.useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const toggleTheme = () => {
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+    setCurrentTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    const root = window.document.documentElement;
+    if (nextTheme === 'light') {
+      root.classList.add('light');
+    } else {
+      root.classList.remove('light');
+    }
+  };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser && firebaseUser.emailVerified) {
         setUser({ id: firebaseUser.uid, name: firebaseUser.displayName || 'User', email: firebaseUser.email || '' });
@@ -88,7 +97,7 @@ function App() {
     return () => unsubscribe();
   }, [setUser, setAuthLoading]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -145,50 +154,36 @@ function App() {
     );
   }
 
-  // Temporary component to satisfy router until Sprints catch up
   const ModulePlaceholder = ({ title }: { title: string }) => (
-    <div className="flex flex-col items-center justify-center h-full text-center text-textMuted">
+    <div className="flex flex-col items-center justify-center h-full text-center text-textMuted p-6">
       <div className="w-16 h-16 rounded-full bg-surface border border-glass flex items-center justify-center mb-4">
         <Sparkles size={32} className="text-primary opacity-50" />
       </div>
       <h2 className="text-2xl font-bold text-textMain mb-2">{title}</h2>
-      <p className="max-w-md">This module is scheduled for development in an upcoming Sprint. The UI and MongoDB integration will replace this screen shortly.</p>
+      <p className="max-w-md">This module is scheduled for development in an upcoming update.</p>
     </div>
   );
 
   return (
     <div className="flex h-screen bg-background overflow-hidden font-sans text-textMain">
-      {/* Mobile Backdrop */}
-      <AnimatePresence>
-        {isMobileOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsMobileOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Smart Sidebar - Collapsible */}
+      {/* 
+        DESKTOP SIDEBAR ONLY (hidden on mobile, preserving full desktop navigation)
+        Strict requirement: NO sidebar on mobile, NO hamburger menu drawer.
+      */}
       <motion.aside 
         initial={{ width: 256 }}
-        animate={{ width: isSidebarOpen ? 256 : 88 }}
-        onMouseEnter={() => !isMobile && !isPinned && setIsHovered(true)}
-        onMouseLeave={() => !isMobile && !isPinned && setIsHovered(false)}
-        className={`glass-panel flex flex-col z-50 shrink-0 overflow-hidden transition-transform duration-300
-          fixed md:relative top-4 bottom-4 left-4 md:top-0 md:bottom-0 md:left-0 md:m-4
-          h-[calc(100vh-32px)] 
-          ${isMobile ? (isMobileOpen ? 'translate-x-0' : '-translate-x-[120%]') : 'translate-x-0'}
-        `}
+        animate={{ width: isDesktopSidebarOpen ? 256 : 88 }}
+        onMouseEnter={() => !isPinned && setIsHovered(true)}
+        onMouseLeave={() => !isPinned && setIsHovered(false)}
+        className="hidden md:flex glass-panel flex-col z-50 shrink-0 overflow-hidden transition-all duration-300
+          relative top-0 bottom-0 left-0 m-4 h-[calc(100vh-32px)]"
       >
-        <div className={`p-6 flex items-center shrink-0 border-b border-glass h-20 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
+        <div className={`p-6 flex items-center shrink-0 border-b border-glass h-20 ${isDesktopSidebarOpen ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full shadow-neon-primary shrink-0 overflow-hidden flex items-center justify-center border border-primary/20">
               <img src="/vynora_logo.png" alt="Vynora Logo" className="w-full h-full object-cover" />
             </div>
-            {isSidebarOpen && (
+            {isDesktopSidebarOpen && (
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -200,13 +195,13 @@ function App() {
               </motion.div>
             )}
           </div>
-          {isSidebarOpen && (
+          {isDesktopSidebarOpen && (
             <button 
               onClick={() => setIsPinned(!isPinned)} 
               className="text-textMuted hover:text-textMain p-1 hover:bg-surface rounded transition-colors"
               title={isPinned ? "Unpin Sidebar" : "Pin Sidebar"}
             >
-              <Menu size={20} />
+              <span className="text-xs font-mono">{isPinned ? '📌' : '📍'}</span>
             </button>
           )}
         </div>
@@ -217,23 +212,20 @@ function App() {
             return (
               <button
                 key={item.path}
-                onClick={() => {
-                  navigate(item.path);
-                  if (isMobile) setIsMobileOpen(false);
-                }}
+                onClick={() => navigate(item.path)}
                 className={`w-full flex items-center gap-3 rounded-xl transition-all duration-300 ${
-                  isSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
+                  isDesktopSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
                 } ${
                   isActive 
                     ? 'bg-surfaceLight text-primary shadow-[inset_4px_0_0_0_#00f2fe]' 
                     : 'text-textMuted hover:text-textMain hover:bg-surface'
                 }`}
-                title={!isSidebarOpen ? item.label : undefined}
+                title={!isDesktopSidebarOpen ? item.label : undefined}
               >
                 <span className={`${isActive ? 'text-primary' : ''} shrink-0`}>
                   {item.icon}
                 </span>
-                {isSidebarOpen && (
+                {isDesktopSidebarOpen && (
                   <motion.span 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -250,92 +242,122 @@ function App() {
 
         <div className="p-3 border-t border-glass space-y-2 shrink-0">
           <button 
-            onClick={() => {
-              navigate('/settings');
-              if (isMobile) setIsMobileOpen(false);
-            }}
+            onClick={() => navigate('/settings')}
             className={`w-full flex items-center gap-3 text-textMuted hover:text-textMain hover:bg-surface rounded-xl transition-all ${
-              isSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
+              isDesktopSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
             }`}
-            title={!isSidebarOpen ? "Settings" : undefined}
+            title={!isDesktopSidebarOpen ? "Settings" : undefined}
           >
             <Settings size={20} className="shrink-0" />
-            {isSidebarOpen && <span className="font-medium text-sm whitespace-nowrap">Settings</span>}
+            {isDesktopSidebarOpen && <span className="font-medium text-sm whitespace-nowrap">Settings</span>}
           </button>
           <button 
             onClick={handleLogout} 
             className={`w-full flex items-center gap-3 text-red-400 hover:text-red-300 hover:bg-surface rounded-xl transition-all ${
-              isSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
+              isDesktopSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
             }`}
-            title={!isSidebarOpen ? "Sign Out" : undefined}
+            title={!isDesktopSidebarOpen ? "Sign Out" : undefined}
           >
             <LogOut size={20} className="shrink-0" />
-            {isSidebarOpen && <span className="font-medium text-sm whitespace-nowrap">Sign Out</span>}
+            {isDesktopSidebarOpen && <span className="font-medium text-sm whitespace-nowrap">Sign Out</span>}
           </button>
         </div>
       </motion.aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen relative w-full overflow-hidden">
-        <header className="h-16 md:h-20 px-4 md:px-8 flex items-center justify-between shrink-0 gap-4">
-          <div className="flex items-center gap-2 md:gap-4 flex-1">
-            <button 
-              className="md:hidden p-2 glass-panel rounded-lg text-textMuted hover:text-textMain"
-              onClick={() => setIsMobileOpen(true)}
-            >
-              <Menu size={20} />
-            </button>
+        {/* 
+          DESKTOP HEADER (always shown on md:)
+          MOBILE HEADER (shown ONLY on Dashboard '/' to provide logo, greeting, theme toggle, notifications)
+          Inner mobile pages display their dedicated MobilePageHeader with back navigation!
+        */}
+        <header className={`${isDashboard ? 'flex' : 'hidden md:flex'} h-13 md:h-20 px-3 md:px-8 items-center justify-between shrink-0 gap-2.5 border-b border-glass/40 md:border-b-0`}>
+          {/* Left Side: Brand on mobile, search on desktop */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            {/* Mobile Branding (Dashboard only) — Minimal size */}
+            <div className="flex items-center gap-2 md:hidden">
+              <div className="w-7 h-7 rounded-full shadow-neon-primary-sm shrink-0 overflow-hidden border border-primary/30">
+                <img src="/vynora_logo.png" alt="Vynora" className="w-full h-full object-cover" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold tracking-wider text-textMain leading-tight">Vynora</h1>
+                <p className="text-[9px] text-primary truncate font-medium">Smart Life OS</p>
+              </div>
+            </div>
+
+            {/* Desktop Search */}
             <div 
-              className="flex items-center gap-2 px-3 md:px-4 py-2 glass-panel cursor-pointer text-textMuted hover:text-textMain transition-colors w-full max-w-[280px] sm:w-72 shadow-neon-primary-sm rounded-lg"
+              className="hidden md:flex items-center gap-2 px-4 py-2 glass-panel cursor-pointer text-textMuted hover:text-textMain transition-colors w-full max-w-[280px] sm:w-72 shadow-neon-primary-sm rounded-lg"
               onClick={() => setCmdMenuOpen(true)}
             >
               <Search size={16} className="text-primary shrink-0" />
-              <span className="text-sm font-medium hidden sm:inline">Search Vynora...</span>
-              <span className="text-sm font-medium sm:hidden">Search</span>
-              <span className="ml-auto text-xs border border-glass px-1.5 py-0.5 rounded bg-surface hidden md:inline">⌘K</span>
+              <span className="text-sm font-medium">Search Vynora...</span>
+              <span className="ml-auto text-xs border border-glass px-1.5 py-0.5 rounded bg-surface">⌘K</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4 shrink-0">
-            <button className="p-2 rounded-full glass-panel hover:text-primary transition-colors relative">
-              <Bell size={18} className="md:w-5 md:h-5" />
+          {/* Right Side: Theme toggle, notifications, profile — Minimal size */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Theme Toggle Button */}
+            <button 
+              onClick={toggleTheme}
+              aria-label="Toggle Theme"
+              className="p-1.5 rounded-full glass-panel hover:text-primary transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center text-textMuted"
+              title={`Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
+            >
+              {currentTheme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+            </button>
+
+            {/* Notifications */}
+            <button 
+              aria-label="Notifications"
+              className="p-1.5 rounded-full glass-panel hover:text-primary transition-colors relative min-h-[34px] min-w-[34px] flex items-center justify-center text-textMuted"
+            >
+              <Bell size={15} />
               {aiStatus === 'thinking' && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping"></span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full animate-ping"></span>
               )}
             </button>
-            <div className="flex items-center gap-2 glass-panel px-2 md:px-3 py-1.5 rounded-full border border-glass">
-              <User size={16} className="text-primary shrink-0" />
-              <span className="text-sm font-medium hidden sm:inline">{user?.name || 'Guest'}</span>
-            </div>
+
+            {/* Profile Avatar / Settings Link */}
+            <button
+              onClick={() => navigate('/settings')}
+              aria-label="User Account"
+              className="flex items-center gap-1.5 glass-panel px-2 py-1 rounded-full border border-glass hover:border-primary/40 transition-colors min-h-[34px]"
+            >
+              <div className="w-5.5 h-5.5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[11px]">
+                {user?.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+              <span className="text-xs font-medium hidden sm:inline">{user?.name?.split(' ')[0] || 'User'}</span>
+            </button>
           </div>
         </header>
 
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar relative">
+        {/* Scrollable Main Views */}
+        <div className="flex-1 p-3 sm:p-5 md:p-8 overflow-y-auto custom-scrollbar relative pb-16 md:pb-8">
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><Dashboard /></motion.div>} />
-                <Route path="/finance" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FinanceTracker /></motion.div>} />
-                <Route path="/loans" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><LoanManager /></motion.div>} />
-                <Route path="/digital-locker" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><DigitalLocker /></motion.div>} />
-                
-                <Route path="/tasks" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><TasksPlanner /></motion.div>} />
-                <Route path="/medicine" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><MedicineReminder /></motion.div>} />
-                <Route path="/bills" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><BillReminder /></motion.div>} />
+                <Route path="/ai/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><AIAssistant /></motion.div>} />
+                <Route path="/finance/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FinanceTracker /></motion.div>} />
+                <Route path="/loans/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><LoanManager /></motion.div>} />
+                <Route path="/digital-locker/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><DigitalLocker /></motion.div>} />
+                <Route path="/tasks/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><TasksPlanner /></motion.div>} />
+                <Route path="/medicine/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><MedicineReminder /></motion.div>} />
+                <Route path="/bills/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><BillReminder /></motion.div>} />
                 <Route path="/agriculture/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><AgricultureManager /></motion.div>} />
                 <Route path="/dairy/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><DairyManager /></motion.div>} />
-                <Route path="/emergency" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><EmergencyContacts /></motion.div>} />
+                <Route path="/emergency/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><EmergencyContacts /></motion.div>} />
                 <Route path="/vehicles/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><VehicleManager /></motion.div>} />
                 <Route path="/home-inventory/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><HomeInventory /></motion.div>} />
-                <Route path="/password-vault" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><PasswordVault /></motion.div>} />
-                <Route path="/student" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><StudentPlanner /></motion.div>} />
-                <Route path="/health" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><HealthRecords /></motion.div>} />
-                <Route path="/goals" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><GoalTracker /></motion.div>} />
-                <Route path="/family" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FamilyDashboard /></motion.div>} />
-                
-                {/* ModulePlaceholder mapping complete. */}
-                <Route path="/reports" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><GlobalReports /></motion.div>} />
-                <Route path="/settings" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><SettingsPage /></motion.div>} />
+                <Route path="/password-vault/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><PasswordVault /></motion.div>} />
+                <Route path="/student/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><StudentPlanner /></motion.div>} />
+                <Route path="/health/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><HealthRecords /></motion.div>} />
+                <Route path="/goals/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><GoalTracker /></motion.div>} />
+                <Route path="/family/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FamilyDashboard /></motion.div>} />
+                <Route path="/reports/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><GlobalReports /></motion.div>} />
+                <Route path="/settings/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><SettingsPage /></motion.div>} />
 
                 <Route path="*" element={<ModulePlaceholder title="404 - Module Not Found" />} />
               </Route>
@@ -343,36 +365,37 @@ function App() {
           </AnimatePresence>
         </div>
 
-        {/* Floating AI Chat Widget */}
-        {location.pathname === '/' && <AIChatWidget />}
+        {/* Mobile Bottom Navigation Bar (Home, Finance, Tasks, Settings) */}
+        <BottomNav />
 
+        {/* Command Menu */}
         {cmdMenuOpen && (
-          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh]" onClick={() => setCmdMenuOpen(false)}>
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] p-4" onClick={() => setCmdMenuOpen(false)}>
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="w-[90%] max-w-2xl glass-panel p-4 shadow-neon-primary"
+              className="w-full max-w-2xl glass-panel p-4 shadow-neon-primary"
               onClick={(e) => e.stopPropagation()}
             >
               <form onSubmit={handleAICommand} className="flex items-center gap-3 border-b border-glass pb-4 mb-4">
-                <Search className="text-primary" size={24} />
+                <Search className="text-primary shrink-0" size={24} />
                 <input 
                   autoFocus
                   type="text" 
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Search globally across expenses, crops, vehicles..." 
-                  className="bg-transparent flex-1 outline-none text-lg placeholder-gray-500"
+                  className="bg-transparent flex-1 outline-none text-base sm:text-lg placeholder-gray-500 min-w-0"
                 />
                 <button type="button" onClick={() => setCmdMenuOpen(false)} className="text-xs text-textMuted bg-surface px-2 py-1 rounded border border-glass hover:bg-surfaceLight transition-colors">ESC</button>
               </form>
-              <div className="text-sm text-textMuted p-2">
-                <p>Global Search (Coming in Sprint 7):</p>
-                <ul className="mt-2 space-y-2">
-                  <li className="p-2 rounded flex items-center gap-2 opacity-50"><Pill size={14}/> <span>Paracetamol (Medicine)</span></li>
-                  <li className="p-2 rounded flex items-center gap-2 opacity-50"><FileText size={14}/> <span>Aadhaar Card (Digital Locker)</span></li>
-                  <li className="p-2 rounded flex items-center gap-2 opacity-50"><Tractor size={14}/> <span>Wheat Seeds (Agriculture)</span></li>
-                </ul>
+              <div className="text-xs text-textMuted p-2">
+                <p>Quick suggestions:</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="p-2 rounded bg-surface border border-glass flex items-center gap-2"><Pill size={14} className="text-blue-400"/> Medicine Dose</span>
+                  <span className="p-2 rounded bg-surface border border-glass flex items-center gap-2"><Car size={14} className="text-yellow-400"/> Vehicle Service</span>
+                  <span className="p-2 rounded bg-surface border border-glass flex items-center gap-2"><Tractor size={14} className="text-emerald-400"/> Farm Crops</span>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -382,4 +405,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <NavigationProvider>
+      <AppContent />
+    </NavigationProvider>
+  );
+}

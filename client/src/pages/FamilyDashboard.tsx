@@ -11,6 +11,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 export default function FamilyDashboard() {
   const { user } = useContextEngineStore();
@@ -243,31 +244,33 @@ export default function FamilyDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Users className="text-primary" size={32} /> Family Dashboard
-          </h1>
-          <p className="text-textMuted">
-            Shared announcements, family chore assignments, important dates, and household expense splits.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button
-            onClick={() => setShowMemberModal(true)}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Plus size={16} /> Add Member
-          </button>
-        </div>
-      </div>
+      <MobilePageHeader
+        title="Family Dashboard"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        subtitle="Shared announcements, family chore assignments, important dates, and household expense splits."
+        badges={[
+          { label: `${members.length} Members`, variant: 'info' },
+          { label: `${pendingChores.length} Chores`, variant: pendingChores.length > 0 ? 'warning' : 'success' },
+          { label: `₹${totalSharedSpend.toLocaleString()}`, variant: 'default' }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="min-h-[44px] bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs sm:text-sm transition-colors touch-target"
+            >
+              <Download size={15} /> <span className="hidden sm:inline">Export</span> CSV
+            </button>
+            <button
+              onClick={() => setShowMemberModal(true)}
+              className="min-h-[44px] bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs sm:text-sm touch-target"
+            >
+              <Plus size={16} /> <span>Add Member</span>
+            </button>
+          </div>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

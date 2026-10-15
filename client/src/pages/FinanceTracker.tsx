@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, ArrowUpRight, ArrowDownRight, IndianRupee, Filter, Download,
@@ -14,6 +15,7 @@ import { SearchFilterBar } from '../components/common/SearchFilterBar';
 import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const CATEGORIES = [
   'Food & Dining', 'Housing & Rent', 'Utilities & Bills', 'Transportation',
@@ -81,6 +83,27 @@ export default function FinanceTracker() {
   // Delete Confirm
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'tx' | 'account' } | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const handleCloseTxModal = () => {
+    setShowTxModal(false);
+    if (searchParams.get('action')) {
+      setSearchParams({}, { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setEditTxId(null);
+      setTxFormData({
+        title: '', amount: '', type: 'expense', category: 'Food & Dining',
+        accountId: '', paymentMode: 'UPI / Online',
+        date: new Date().toISOString().split('T')[0], notes: '', receiptUrl: ''
+      });
+      setShowTxModal(true);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     fetchData();
   }, [user]);
@@ -122,7 +145,7 @@ export default function FinanceTracker() {
         await FinanceService.addTransaction(activeUid, payload);
       }
 
-      setShowTxModal(false);
+      handleCloseTxModal();
       setEditTxId(null);
       setTxFormData({
         title: '', amount: '', type: 'expense', category: 'Food & Dining',
@@ -252,83 +275,87 @@ export default function FinanceTracker() {
   const pieData = Object.entries(summary.categoryBreakdown || {}).map(([name, value]) => ({ name, value }));
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <IndianRupee className="text-primary" size={28} /> Finance Tracker
-          </h1>
-          <p className="text-textMuted">Complete personal ledger, accounts, budgets, and transfer engine.</p>
+    <div className="space-y-4 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard — Minimal size */}
+      <MobilePageHeader
+        title="Finance Tracker"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<IndianRupee className="text-primary" size={16} />}
+        subtitle="Complete personal ledger, accounts, budgets, and transfer engine."
+        actions={
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => exportToCSV(transactions, `Vynora_Finance_Ledger_${new Date().toISOString().split('T')[0]}`)}
+              className="px-2.5 py-1 rounded-lg border border-glass bg-surface hover:bg-surfaceLight text-textMain text-[11px] font-medium flex items-center gap-1 transition-colors min-h-[32px]"
+            >
+              <Download size={12} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowTransferModal(true)}
+              className="px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold flex items-center gap-1 transition-colors min-h-[32px]"
+            >
+              <ArrowRightLeft size={12} /> Transfer
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditTxId(null); setShowTxModal(true); }}
+              className="bg-primary text-background px-2.5 py-1 rounded-lg flex items-center gap-1 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-[11px] min-h-[32px] active:scale-95"
+            >
+              <Plus size={13} /> Add Record
+            </button>
+          </div>
+        }
+      />
+
+      {/* KPI Cards (2 columns on mobile, 4 on desktop) — Minimal size */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="glass-panel p-2.5 sm:p-3.5 border-t-2 border-t-primary">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] text-textMuted font-medium uppercase tracking-wider">Net Balance</span>
+            <div className="p-1 bg-primary/20 text-primary rounded-md"><Wallet size={13} /></div>
+          </div>
+          <div className="text-base sm:text-xl font-bold text-textMain">₹{summary.balance.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</div>
+          <p className="text-[9px] sm:text-[10px] text-textMuted mt-0.5">Active accounts</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => exportToCSV(transactions, `Vynora_Finance_Ledger_${new Date().toISOString().split('T')[0]}`)}
-            className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2 transition-colors"
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button
-            onClick={() => setShowTransferModal(true)}
-            className="px-3.5 py-2 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium flex items-center gap-2 transition-colors"
-          >
-            <ArrowRightLeft size={16} /> Transfer
-          </button>
-          <button
-            onClick={() => { setEditTxId(null); setShowTxModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-medium text-sm"
-          >
-            <Plus size={18} /> Add Record
-          </button>
+
+        <div className="glass-panel p-2.5 sm:p-3.5 border-t-2 border-t-green-400">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] text-textMuted font-medium uppercase tracking-wider">Income</span>
+            <div className="p-1 bg-green-400/20 text-green-400 rounded-md"><ArrowUpRight size={13} /></div>
+          </div>
+          <div className="text-base sm:text-xl font-bold text-green-400">₹{summary.totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</div>
+          <p className="text-[9px] sm:text-[10px] text-textMuted mt-0.5">Earnings & sales</p>
+        </div>
+
+        <div className="glass-panel p-2.5 sm:p-3.5 border-t-2 border-t-red-400">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] text-textMuted font-medium uppercase tracking-wider">Expenses</span>
+            <div className="p-1 bg-red-400/20 text-red-400 rounded-md"><ArrowDownRight size={13} /></div>
+          </div>
+          <div className="text-base sm:text-xl font-bold text-red-400">₹{summary.totalExpense.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</div>
+          <p className="text-[9px] sm:text-[10px] text-textMuted mt-0.5">Bills & lifestyle</p>
+        </div>
+
+        <div className="glass-panel p-2.5 sm:p-3.5 border-t-2 border-t-purple-400">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] sm:text-[10px] text-textMuted font-medium uppercase tracking-wider">Accounts</span>
+            <div className="p-1 bg-purple-400/20 text-purple-400 rounded-md"><CreditCard size={13} /></div>
+          </div>
+          <div className="text-base sm:text-xl font-bold text-purple-400">{accounts.length} Active</div>
+          <p className="text-[9px] sm:text-[10px] text-textMuted mt-0.5">Banks, Cash & UPI</p>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="glass-panel p-5 border-t-4 border-t-primary">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-textMuted font-medium">Net Balance</span>
-            <div className="p-2 bg-primary/20 text-primary rounded-lg"><Wallet size={18} /></div>
-          </div>
-          <div className="text-2xl font-bold text-textMain">₹{summary.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-          <p className="text-[11px] text-textMuted mt-1">Total across active accounts</p>
-        </div>
-
-        <div className="glass-panel p-5 border-t-4 border-t-green-400">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-textMuted font-medium">Total Income</span>
-            <div className="p-2 bg-green-400/20 text-green-400 rounded-lg"><ArrowUpRight size={18} /></div>
-          </div>
-          <div className="text-2xl font-bold text-green-400">₹{summary.totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-          <p className="text-[11px] text-textMuted mt-1">Earnings & farm sales</p>
-        </div>
-
-        <div className="glass-panel p-5 border-t-4 border-t-red-400">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-textMuted font-medium">Total Expenses</span>
-            <div className="p-2 bg-red-400/20 text-red-400 rounded-lg"><ArrowDownRight size={18} /></div>
-          </div>
-          <div className="text-2xl font-bold text-red-400">₹{summary.totalExpense.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-          <p className="text-[11px] text-textMuted mt-1">Bills, lifestyle & inputs</p>
-        </div>
-
-        <div className="glass-panel p-5 border-t-4 border-t-purple-400">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-textMuted font-medium">Accounts & Wallets</span>
-            <div className="p-2 bg-purple-400/20 text-purple-400 rounded-lg"><CreditCard size={18} /></div>
-          </div>
-          <div className="text-2xl font-bold text-purple-400">{accounts.length} Active</div>
-          <p className="text-[11px] text-textMuted mt-1">Banks, Cash & UPI</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-glass pb-1">
+      {/* Tabs — Minimal size */}
+      <div className="flex items-center gap-1.5 border-b border-glass pb-1 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
+          className={`px-3 py-1.5 font-semibold text-xs rounded-lg transition-colors whitespace-nowrap ${
             activeTab === 'transactions'
-              ? 'bg-surface text-primary border-t-2 border-primary'
+              ? 'bg-primary/15 text-primary border border-primary/30'
               : 'text-textMuted hover:text-textMain'
           }`}
         >
@@ -336,9 +363,9 @@ export default function FinanceTracker() {
         </button>
         <button
           onClick={() => setActiveTab('accounts')}
-          className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
+          className={`px-3 py-1.5 font-semibold text-xs rounded-lg transition-colors whitespace-nowrap ${
             activeTab === 'accounts'
-              ? 'bg-surface text-primary border-t-2 border-primary'
+              ? 'bg-primary/15 text-primary border border-primary/30'
               : 'text-textMuted hover:text-textMain'
           }`}
         >
@@ -346,9 +373,9 @@ export default function FinanceTracker() {
         </button>
         <button
           onClick={() => setActiveTab('budgets')}
-          className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
+          className={`px-3 py-1.5 font-semibold text-xs rounded-lg transition-colors whitespace-nowrap ${
             activeTab === 'budgets'
-              ? 'bg-surface text-primary border-t-2 border-primary'
+              ? 'bg-primary/15 text-primary border border-primary/30'
               : 'text-textMuted hover:text-textMain'
           }`}
         >
@@ -447,83 +474,155 @@ export default function FinanceTracker() {
               onAction={() => { setEditTxId(null); setShowTxModal(true); }}
             />
           ) : (
-            <div className="glass-panel overflow-hidden border border-glass">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-glass bg-surface/50 text-xs font-semibold text-textMuted uppercase tracking-wider">
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Title / Purpose</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Payment Mode</th>
-                      <th className="py-3 px-4 text-right">Amount</th>
-                      <th className="py-3 px-4 text-center">Receipt</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-glass text-sm">
-                    {filteredTransactions.map((tx: any) => {
-                      const isInc = tx.type === 'income';
-                      const isTrf = tx.type === 'transfer' || tx.isTransfer;
-                      return (
-                        <tr key={tx._id} className="hover:bg-surface/30 transition-colors">
-                          <td className="py-3 px-4 whitespace-nowrap text-xs text-textMuted">
-                            {tx.date ? new Date(tx.date).toLocaleDateString() : 'N/A'}
-                          </td>
-                          <td className="py-3 px-4 font-medium text-textMain max-w-[220px] truncate">
-                            {tx.title}
-                            {tx.notes && <span className="block text-[11px] text-textMuted truncate">{tx.notes}</span>}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-surface border border-glass font-medium text-textMuted">
+            <div className="space-y-3">
+              {/* MOBILE VIEW: Touch-friendly cards */}
+              <div className="space-y-2.5 md:hidden">
+                {filteredTransactions.map((tx: any) => {
+                  const isInc = tx.type === 'income';
+                  const isTrf = tx.type === 'transfer' || tx.isTransfer;
+                  return (
+                    <div key={tx._id} className="glass-panel p-3.5 border border-glass space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-xs sm:text-sm text-textMain truncate">{tx.title}</h4>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface border border-glass font-medium text-textMuted">
                               {tx.category || 'General'}
                             </span>
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap text-xs text-textMuted">
-                            {tx.paymentMode || 'Online'}
-                          </td>
-                          <td className={`py-3 px-4 text-right font-bold whitespace-nowrap ${
-                            isTrf ? 'text-blue-400' : isInc ? 'text-green-400' : 'text-red-400'
-                          }`}>
-                            {isTrf ? '⇄' : isInc ? '+' : '-'} ₹{Number(tx.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            {tx.receiptUrl ? (
-                              <a
-                                href={tx.receiptUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-primary hover:underline font-medium"
-                              >
-                                View ↗
-                              </a>
-                            ) : (
-                              <span className="text-xs text-textMuted">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => handleEditTx(tx)}
-                                className="p-1.5 text-textMuted hover:text-primary transition-colors rounded-lg hover:bg-surface"
-                                title="Edit"
-                              >
-                                <Edit2 size={15} />
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget({ id: tx._id, type: 'tx' })}
-                                className="p-1.5 text-textMuted hover:text-red-400 transition-colors rounded-lg hover:bg-surface"
-                                title="Delete"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            <span className="text-[10px] text-textMuted">• {tx.paymentMode || 'Online'}</span>
+                            <span className="text-[10px] text-textMuted">• {tx.date ? new Date(tx.date).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                        </div>
+                        <span className={`text-sm font-bold shrink-0 ${
+                          isTrf ? 'text-blue-400' : isInc ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {isTrf ? '⇄' : isInc ? '+' : '-'} ₹{Number(tx.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+                        </span>
+                      </div>
+
+                      {tx.notes && (
+                        <p className="text-[11px] text-textMuted bg-surface/50 p-2 rounded-lg border border-glass/60">
+                          {tx.notes}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-glass text-xs">
+                        {tx.receiptUrl ? (
+                          <a
+                            href={tx.receiptUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline text-xs flex items-center gap-1 font-medium min-h-[44px]"
+                          >
+                            Receipt ↗
+                          </a>
+                        ) : <span className="text-textMuted text-[10px]">No receipt</span>}
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleEditTx(tx)}
+                            className="p-2 text-textMuted hover:text-primary transition-colors rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            aria-label="Edit transaction"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ id: tx._id, type: 'tx' })}
+                            className="p-2 text-textMuted hover:text-red-400 transition-colors rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            aria-label="Delete transaction"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* DESKTOP VIEW: Clean Table */}
+              <div className="hidden md:block glass-panel overflow-hidden border border-glass">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-glass bg-surface/50 text-xs font-semibold text-textMuted uppercase tracking-wider">
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Title / Purpose</th>
+                        <th className="py-3 px-4">Category</th>
+                        <th className="py-3 px-4">Payment Mode</th>
+                        <th className="py-3 px-4 text-right">Amount</th>
+                        <th className="py-3 px-4 text-center">Receipt</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-glass text-sm">
+                      {filteredTransactions.map((tx: any) => {
+                        const isInc = tx.type === 'income';
+                        const isTrf = tx.type === 'transfer' || tx.isTransfer;
+                        return (
+                          <tr key={tx._id} className="hover:bg-surface/30 transition-colors">
+                            <td className="py-3 px-4 whitespace-nowrap text-xs text-textMuted">
+                              {tx.date ? new Date(tx.date).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-textMain max-w-[220px] truncate">
+                              {tx.title}
+                              {tx.notes && <span className="block text-[11px] text-textMuted truncate">{tx.notes}</span>}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className="text-xs px-2.5 py-1 rounded-full bg-surface border border-glass font-medium text-textMuted">
+                                {tx.category || 'General'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap text-xs text-textMuted">
+                              {tx.paymentMode || 'Online'}
+                            </td>
+                            <td className={`py-3 px-4 text-right font-bold whitespace-nowrap ${
+                              isTrf ? 'text-blue-400' : isInc ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {isTrf ? '⇄' : isInc ? '+' : '-'} ₹{Number(tx.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              {tx.receiptUrl ? (
+                                <a
+                                  href={tx.receiptUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-primary hover:underline font-medium"
+                                >
+                                  View ↗
+                                </a>
+                              ) : (
+                                <span className="text-xs text-textMuted">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditTx(tx)}
+                                  className="p-1.5 text-textMuted hover:text-primary transition-colors rounded-lg hover:bg-surface"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTarget({ id: tx._id, type: 'tx' })}
+                                  className="p-1.5 text-textMuted hover:text-red-400 transition-colors rounded-lg hover:bg-surface"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -643,7 +742,7 @@ export default function FinanceTracker() {
       {/* TRANSACTION MODAL */}
       <AnimatePresence>
         {showTxModal && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTxModal(false)}>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleCloseTxModal}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -777,7 +876,7 @@ export default function FinanceTracker() {
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
                   <button
                     type="button"
-                    onClick={() => setShowTxModal(false)}
+                    onClick={handleCloseTxModal}
                     className="px-4 py-2 rounded-xl border border-glass text-textMuted hover:text-textMain text-sm"
                   >
                     Cancel

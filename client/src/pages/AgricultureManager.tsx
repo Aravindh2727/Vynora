@@ -12,6 +12,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const SEASONS = ['Kharif (Monsoon)', 'Rabi (Winter)', 'Zaid (Summer)', 'Year-round'];
 const CROP_STATUSES = ['Planned', 'Sown / Growing', 'Flowering / Fruiting', 'Ready to Harvest', 'Harvested'];
@@ -252,63 +253,67 @@ export default function AgricultureManager() {
   const totalAcreage = crops.reduce((acc, c) => acc + (Number(c.areaAcres) || 0), 0);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Sprout className="text-green-400" size={28} /> Agriculture Manager
-          </h1>
-          <p className="text-textMuted">Farm parcels, crop cycles, input costs, harvest yields, and profit margins.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => exportToCSV(crops, 'Vynora_Crop_Cycles')}
-            className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
-          >
-            <Download size={16} /> Export Crop Report
-          </button>
-          <button
-            onClick={() => setShowFarmModal(true)}
-            className="px-3.5 py-2 rounded-xl border border-green-500/30 bg-green-500/10 text-green-400 text-sm font-medium flex items-center gap-2 hover:bg-green-500/20"
-          >
-            <MapPin size={16} /> Add Farm Parcel
-          </button>
-          <button
-            onClick={() => { setEditCropId(null); resetCropForm(); setShowCropModal(true); }}
-            className="bg-green-500 text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-green-400 font-medium text-sm shadow-neon-primary-sm"
-          >
-            <Plus size={18} /> New Crop Cycle
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Agriculture Manager"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Tractor className="text-green-400" size={24} />}
+        subtitle="Farm parcels, crop cycles, input costs, harvest yields, and profit margins."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => exportToCSV(crops, 'Vynora_Crop_Cycles')}
+              className="px-3 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-xs font-medium flex items-center gap-1.5 min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowFarmModal(true)}
+              className="px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-semibold flex items-center gap-1.5 hover:bg-green-500/20 min-h-[44px]"
+            >
+              <MapPin size={14} /> Add Parcel
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditCropId(null); resetCropForm(); setShowCropModal(true); }}
+              className="bg-green-500 text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-green-400 font-bold text-xs shadow-neon-primary-sm min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> New Crop
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="glass-panel p-5 border-t-4 border-t-green-400">
-          <span className="text-xs text-textMuted font-medium">Total Season Revenue</span>
-          <div className="text-2xl font-bold text-green-400 mt-1">₹{totalSeasonRevenue.toLocaleString('en-IN')}</div>
-          <p className="text-[11px] text-textMuted mt-1">From harvest sales</p>
-        </div>
-
-        <div className="glass-panel p-5 border-t-4 border-t-red-400">
-          <span className="text-xs text-textMuted font-medium">Total Season Investment</span>
-          <div className="text-2xl font-bold text-red-400 mt-1">₹{totalSeasonCost.toLocaleString('en-IN')}</div>
-          <p className="text-[11px] text-textMuted mt-1">Seeds, fertilizers, labor & machinery</p>
+      {/* KPI Row (Responsive grid) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-green-400">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Revenue</span>
+          <div className="text-base sm:text-2xl font-bold text-green-400 mt-0.5">₹{totalSeasonRevenue.toLocaleString('en-IN')}</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Harvest sales</p>
         </div>
 
-        <div className="glass-panel p-5 border-t-4 border-t-primary">
-          <span className="text-xs text-textMuted font-medium">Net Farm Profit</span>
-          <div className={`text-2xl font-bold mt-1 ${totalNetProfit >= 0 ? 'text-primary' : 'text-red-400'}`}>
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-red-400">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Investment</span>
+          <div className="text-base sm:text-2xl font-bold text-red-400 mt-0.5">₹{totalSeasonCost.toLocaleString('en-IN')}</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Input costs</p>
+        </div>
+
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-primary">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Net Profit</span>
+          <div className={`text-base sm:text-2xl font-bold mt-0.5 ${totalNetProfit >= 0 ? 'text-primary' : 'text-red-400'}`}>
             ₹{totalNetProfit.toLocaleString('en-IN')}
           </div>
-          <p className="text-[11px] text-textMuted mt-1">Synchronized to Finance</p>
+          <p className="text-[10px] text-textMuted mt-0.5">Farm balance</p>
         </div>
 
-        <div className="glass-panel p-5 border-t-4 border-t-yellow-400">
-          <span className="text-xs text-textMuted font-medium">Active Farm Area</span>
-          <div className="text-2xl font-bold text-yellow-400 mt-1">{totalAcreage.toFixed(1)} Acres</div>
-          <p className="text-[11px] text-textMuted mt-1">{crops.length} active crop cycles</p>
+        <div className="glass-panel p-3.5 sm:p-5 border-t-2 sm:border-t-4 border-t-yellow-400">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Active Area</span>
+          <div className="text-base sm:text-2xl font-bold text-yellow-400 mt-0.5">{totalAcreage.toFixed(1)} Acres</div>
+          <p className="text-[10px] text-textMuted mt-0.5">{crops.length} active crop cycles</p>
         </div>
       </div>
 

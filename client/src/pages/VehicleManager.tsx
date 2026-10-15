@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Car, Fuel, Wrench, FileText, AlertTriangle, ShieldCheck,
-  Calendar, Gauge, IndianRupee, ArrowLeft, Edit2, Trash2, CheckCircle2,
-  Download, Clock, ChevronRight
+  Calendar, Gauge, IndianRupee, Edit2, Trash2, CheckCircle2,
+  Download, Clock, ChevronRight, Droplet, Battery, Shield, Landmark,
+  FolderOpen, BarChart3, ArrowLeft, ExternalLink, Sparkles
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { VehicleService, getActiveUserId } from '../services/firestoreService';
@@ -13,6 +15,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const VEHICLE_TYPES = ['Car', 'Bike', 'Scooter', 'Tractor', 'Truck / Commercial', 'Other'];
 const SERVICE_TYPES = [
@@ -25,13 +28,15 @@ const FUEL_TYPES = ['Petrol', 'Diesel', 'CNG', 'Electric (kWh)'];
 export default function VehicleManager() {
   const { user } = useContextEngineStore();
   const activeUid = getActiveUserId(user?.id);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Multi-level route states
+  const selectedVehicleId = searchParams.get('vehicleId');
+  const activeSubsection = searchParams.get('sub');
 
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Active Vehicle Detail View
-  const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'fuel' | 'service' | 'documents'>('overview');
 
   // Logs for selected vehicle
   const [fuelLogs, setFuelLogs] = useState<any[]>([]);
@@ -59,11 +64,20 @@ export default function VehicleManager() {
     pucNumber: '',
     pucExpiry: '',
     pucDocUrl: '',
+    drivingLicenceNo: '',
+    drivingLicenceDocUrl: '',
     lastServiceOdo: '',
     nextServiceOdo: '',
     nextServiceDate: '',
     financier: '',
-    loanAccountNo: ''
+    loanAccountNo: '',
+    engineOilType: '5W-30 Synthetic',
+    lastOilChangeOdo: '',
+    batteryMake: '',
+    batteryInstallDate: '',
+    tyreBrand: '',
+    tyrePressureFront: '32',
+    tyrePressureRear: '34'
   });
 
   // Fuel Modal
@@ -95,25 +109,29 @@ export default function VehicleManager() {
   // Delete Confirm
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'vehicle' | 'fuel' | 'service' } | null>(null);
 
+  // Fetch Vehicles
   useEffect(() => {
     fetchVehicles();
   }, [user]);
 
+  // Selected vehicle object from URL state
+  const selectedVehicle = useMemo(() => {
+    if (!selectedVehicleId) return null;
+    return vehicles.find(v => v._id === selectedVehicleId) || null;
+  }, [vehicles, selectedVehicleId]);
+
+  // Fetch sub-logs when a vehicle is active
   useEffect(() => {
-    if (selectedVehicle) {
-      fetchVehicleLogs(selectedVehicle._id);
+    if (selectedVehicleId) {
+      fetchVehicleLogs(selectedVehicleId);
     }
-  }, [selectedVehicle]);
+  }, [selectedVehicleId]);
 
   const fetchVehicles = async () => {
     setLoading(true);
     try {
       const data = await VehicleService.getVehicles(activeUid);
       setVehicles(data);
-      if (selectedVehicle) {
-        const updated = data.find(v => v._id === selectedVehicle._id);
-        if (updated) setSelectedVehicle(updated);
-      }
     } catch (e) {
       console.error('Error fetching vehicles:', e);
     } finally {
@@ -132,6 +150,25 @@ export default function VehicleManager() {
     } catch (e) {
       console.error('Error fetching vehicle sub-logs:', e);
     }
+  };
+
+  // Navigation Helpers (Step-by-step history pushes)
+  const openVehicle = (v: any) => {
+    setSearchParams({ vehicleId: v._id });
+  };
+
+  const openSubsection = (sub: string) => {
+    if (!selectedVehicleId) return;
+    setSearchParams({ vehicleId: selectedVehicleId, sub });
+  };
+
+  const backToVehicleOverview = () => {
+    if (!selectedVehicleId) return;
+    setSearchParams({ vehicleId: selectedVehicleId });
+  };
+
+  const backToFleet = () => {
+    setSearchParams({});
   };
 
   // Save Vehicle
@@ -168,8 +205,10 @@ export default function VehicleManager() {
       name: '', type: 'Car', licensePlate: '', make: '', model: '', year: '', color: '',
       rcNumber: '', rcExpiry: '', rcDocUrl: '',
       insuranceProvider: '', insurancePolicyNumber: '', insuranceExpiry: '', insurancePremium: '', insuranceDocUrl: '',
-      pucNumber: '', pucExpiry: '', pucDocUrl: '',
-      lastServiceOdo: '', nextServiceOdo: '', nextServiceDate: '', financier: '', loanAccountNo: ''
+      pucNumber: '', pucExpiry: '', pucDocUrl: '', drivingLicenceNo: '', drivingLicenceDocUrl: '',
+      lastServiceOdo: '', nextServiceOdo: '', nextServiceDate: '', financier: '', loanAccountNo: '',
+      engineOilType: '5W-30 Synthetic', lastOilChangeOdo: '', batteryMake: '', batteryInstallDate: '',
+      tyreBrand: '', tyrePressureFront: '32', tyrePressureRear: '34'
     });
   };
 
@@ -193,11 +232,20 @@ export default function VehicleManager() {
       pucNumber: v.pucNumber || '',
       pucExpiry: v.pucExpiry ? new Date(v.pucExpiry).toISOString().split('T')[0] : '',
       pucDocUrl: v.pucDocUrl || '',
+      drivingLicenceNo: v.drivingLicenceNo || '',
+      drivingLicenceDocUrl: v.drivingLicenceDocUrl || '',
       lastServiceOdo: String(v.lastServiceOdo || ''),
       nextServiceOdo: String(v.nextServiceOdo || ''),
       nextServiceDate: v.nextServiceDate ? new Date(v.nextServiceDate).toISOString().split('T')[0] : '',
       financier: v.financier || '',
-      loanAccountNo: v.loanAccountNo || ''
+      loanAccountNo: v.loanAccountNo || '',
+      engineOilType: v.engineOilType || '5W-30 Synthetic',
+      lastOilChangeOdo: String(v.lastOilChangeOdo || ''),
+      batteryMake: v.batteryMake || '',
+      batteryInstallDate: v.batteryInstallDate ? new Date(v.batteryInstallDate).toISOString().split('T')[0] : '',
+      tyreBrand: v.tyreBrand || '',
+      tyrePressureFront: String(v.tyrePressureFront || '32'),
+      tyrePressureRear: String(v.tyrePressureRear || '34')
     });
     setEditVehicleId(v._id);
     setShowVehicleModal(true);
@@ -213,17 +261,12 @@ export default function VehicleManager() {
     const price = Number(fuelFormData.pricePerLiter) || 0;
     const computedCost = Number(fuelFormData.cost) || (ltr * price);
 
-    // Mileage validation against latest log
     const prevLog = fuelLogs.length > 0 ? fuelLogs[0] : null;
     let mileage = 0;
 
     if (prevLog && prevLog.odometer) {
       const calc = calculateVehicleMileage(odo, prevLog.odometer, ltr);
-      if (!calc.isValid) {
-        if (!confirm(`${calc.error}. Are you recording an odometer reset or correction? Click OK to save anyway.`)) {
-          return;
-        }
-      } else {
+      if (calc.isValid) {
         mileage = calc.mileage;
       }
     }
@@ -264,7 +307,6 @@ export default function VehicleManager() {
         cost: Number(serviceFormData.cost) || 0
       }, activeUid);
 
-      // Update vehicle's last service odometer
       await VehicleService.updateVehicle(selectedVehicle._id, {
         lastServiceOdo: Number(serviceFormData.odometer) || selectedVehicle.lastServiceOdo
       });
@@ -287,14 +329,14 @@ export default function VehicleManager() {
     try {
       if (deleteTarget.type === 'vehicle') {
         await VehicleService.deleteVehicle(deleteTarget.id);
-        if (selectedVehicle?._id === deleteTarget.id) setSelectedVehicle(null);
+        if (selectedVehicleId === deleteTarget.id) backToFleet();
         fetchVehicles();
       } else if (deleteTarget.type === 'fuel') {
         await VehicleService.deleteFuelLog(deleteTarget.id);
-        if (selectedVehicle) fetchVehicleLogs(selectedVehicle._id);
+        if (selectedVehicleId) fetchVehicleLogs(selectedVehicleId);
       } else if (deleteTarget.type === 'service') {
         await VehicleService.deleteServiceLog(deleteTarget.id);
-        if (selectedVehicle) fetchVehicleLogs(selectedVehicle._id);
+        if (selectedVehicleId) fetchVehicleLogs(selectedVehicleId);
       }
       setDeleteTarget(null);
     } catch (e) {
@@ -302,690 +344,1091 @@ export default function VehicleManager() {
     }
   };
 
-  // Financial Stats for Selected Vehicle
+  // Stats calculations
   const totalFuelCost = fuelLogs.reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0);
   const totalServiceCost = serviceLogs.reduce((acc, curr) => acc + (Number(curr.cost) || 0), 0);
   const totalVehicleExpense = totalFuelCost + totalServiceCost + (Number(selectedVehicle?.insurancePremium) || 0);
 
-  // Average Mileage
   const validMileageLogs = fuelLogs.filter(l => Number(l.mileage) > 0);
   const avgMileage = validMileageLogs.length > 0
     ? (validMileageLogs.reduce((acc, curr) => acc + Number(curr.mileage), 0) / validMileageLogs.length).toFixed(1)
     : 'N/A';
 
-  return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            {selectedVehicle && (
+  // 14 Comprehensive Subsections for Vehicle Overview
+  const vehicleSubsections = [
+    {
+      id: 'details',
+      title: 'Vehicle Details & Specs',
+      icon: <Car size={20} className="text-yellow-400" />,
+      badge: selectedVehicle?.type || 'Specs',
+      summary: `${selectedVehicle?.make || ''} ${selectedVehicle?.model || ''} (${selectedVehicle?.year || 'N/A'})`
+    },
+    {
+      id: 'rc',
+      title: 'RC Book (Registration)',
+      icon: <FileText size={20} className="text-primary" />,
+      badge: selectedVehicle?.rcNumber ? 'Active' : 'Missing',
+      summary: selectedVehicle?.rcNumber || 'No RC registered'
+    },
+    {
+      id: 'insurance',
+      title: 'Insurance Policy',
+      icon: <ShieldCheck size={20} className="text-green-400" />,
+      badge: selectedVehicle?.insuranceExpiry ? `${calculateDaysRemaining(selectedVehicle.insuranceExpiry).daysRemaining}d left` : 'No Policy',
+      summary: selectedVehicle?.insuranceProvider ? `${selectedVehicle.insuranceProvider} • ₹${selectedVehicle.insurancePremium || 0}` : 'Configure policy'
+    },
+    {
+      id: 'puc',
+      title: 'PUC Certificate',
+      icon: <Droplet size={20} className="text-emerald-400" />,
+      badge: selectedVehicle?.pucExpiry ? `${calculateDaysRemaining(selectedVehicle.pucExpiry).daysRemaining}d left` : 'No PUC',
+      summary: selectedVehicle?.pucNumber || 'Pollution under control doc'
+    },
+    {
+      id: 'license',
+      title: 'Driving Licence & Docs',
+      icon: <Shield size={20} className="text-blue-400" />,
+      badge: selectedVehicle?.drivingLicenceNo ? 'Saved' : 'Add',
+      summary: selectedVehicle?.drivingLicenceNo || 'Driver permit and documents'
+    },
+    {
+      id: 'loan',
+      title: 'Loan & Hypothecation',
+      icon: <Landmark size={20} className="text-amber-400" />,
+      badge: selectedVehicle?.financier ? 'Financed' : 'Owned',
+      summary: selectedVehicle?.financier ? `${selectedVehicle.financier} • Acc: ${selectedVehicle.loanAccountNo || '—'}` : 'Self-owned vehicle'
+    },
+    {
+      id: 'service',
+      title: 'Service & Maintenance',
+      icon: <Wrench size={20} className="text-yellow-400" />,
+      badge: `${serviceLogs.length} Records`,
+      summary: `Total Spent: ₹${totalServiceCost.toLocaleString('en-IN')}`
+    },
+    {
+      id: 'oil',
+      title: 'Engine Oil & Filter History',
+      icon: <Droplet size={20} className="text-purple-400" />,
+      badge: selectedVehicle?.engineOilType || '5W-30',
+      summary: `Last changed at ${selectedVehicle?.lastOilChangeOdo || selectedVehicle?.lastServiceOdo || 0} km`
+    },
+    {
+      id: 'fuel',
+      title: 'Fuel Log & Mileage',
+      icon: <Fuel size={20} className="text-primary" />,
+      badge: `${avgMileage} km/L`,
+      summary: `${fuelLogs.length} fill-ups • ₹${totalFuelCost.toLocaleString('en-IN')}`
+    },
+    {
+      id: 'tyre-battery',
+      title: 'Tyre & Battery Maintenance',
+      icon: <Battery size={20} className="text-teal-400" />,
+      badge: `${selectedVehicle?.tyrePressureFront || 32}/${selectedVehicle?.tyrePressureRear || 34} PSI`,
+      summary: `Battery: ${selectedVehicle?.batteryMake || 'Standard'} • Tyres: ${selectedVehicle?.tyreBrand || 'Stock'}`
+    },
+    {
+      id: 'repairs',
+      title: 'Repairs & Spare Parts',
+      icon: <Wrench size={20} className="text-red-400" />,
+      badge: `${serviceLogs.filter(s => s.serviceType.includes('Repair') || s.serviceType.includes('Brake') || s.serviceType.includes('Clutch')).length} Jobs`,
+      summary: 'Breakdowns, part swaps & invoices'
+    },
+    {
+      id: 'expenses',
+      title: 'Vehicle Expenses Breakdown',
+      icon: <IndianRupee size={20} className="text-green-400" />,
+      badge: `₹${totalVehicleExpense.toLocaleString('en-IN')}`,
+      summary: 'Aggregated fuel, repairs & insurance'
+    },
+    {
+      id: 'documents',
+      title: 'Uploaded Documents Gallery',
+      icon: <FolderOpen size={20} className="text-cyan-400" />,
+      badge: `${[selectedVehicle?.rcDocUrl, selectedVehicle?.insuranceDocUrl, selectedVehicle?.pucDocUrl, selectedVehicle?.drivingLicenceDocUrl].filter(Boolean).length} Cloud Docs`,
+      summary: 'Secure cloud certificates & invoices'
+    },
+    {
+      id: 'reminders',
+      title: 'Renewal & Service Reminders',
+      icon: <Clock size={20} className="text-orange-400" />,
+      badge: 'Alerts',
+      summary: `Target Service: ${selectedVehicle?.nextServiceOdo || '—'} km`
+    },
+    {
+      id: 'reports',
+      title: 'Vehicle Reports & Export',
+      icon: <BarChart3 size={20} className="text-primary" />,
+      badge: 'CSV',
+      summary: 'Download maintenance & fuel logs'
+    }
+  ];
+
+  if (loading && !selectedVehicle && vehicles.length === 0) {
+    return <LoadingSpinner message="Loading vehicle fleet records..." />;
+  }
+
+  // =========================================================================
+  // LEVEL 3: DEDICATED SUBSECTION VIEW
+  // =========================================================================
+  if (selectedVehicle && activeSubsection) {
+    const activeSubObj = vehicleSubsections.find(s => s.id === activeSubsection) || {
+      id: activeSubsection,
+      title: activeSubsection.toUpperCase(),
+      icon: <Car size={20} className="text-yellow-400" />
+    };
+
+    return (
+      <div className="space-y-6 pb-12">
+        {/* Strict single-level back: returns to Vehicle Overview (?vehicleId=...) */}
+        <MobilePageHeader
+          title={activeSubObj.title}
+          parentLabel={selectedVehicle.name}
+          fallbackPath={`/vehicles?vehicleId=${selectedVehicle._id}`}
+          onBack={backToVehicleOverview}
+          icon={activeSubObj.icon}
+          subtitle={`${selectedVehicle.name} (${selectedVehicle.licensePlate})`}
+          actions={
+            activeSubsection === 'fuel' ? (
               <button
-                onClick={() => setSelectedVehicle(null)}
-                className="p-1.5 rounded-lg bg-surface border border-glass text-textMuted hover:text-textMain transition-colors"
-                title="Back to Vehicle Fleet"
+                type="button"
+                onClick={() => setShowFuelModal(true)}
+                className="bg-primary text-background px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-neon-primary-sm min-h-[44px] active:scale-95"
               >
-                <ArrowLeft size={18} />
+                <Plus size={16} /> Log Fuel
+              </button>
+            ) : activeSubsection === 'service' || activeSubsection === 'repairs' ? (
+              <button
+                type="button"
+                onClick={() => setShowServiceModal(true)}
+                className="bg-yellow-400 text-black px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md min-h-[44px] active:scale-95"
+              >
+                <Plus size={16} /> Log Service
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleEditVehicle(selectedVehicle)}
+                className="px-3 py-2 bg-surface border border-glass rounded-xl text-xs font-semibold text-textMain flex items-center gap-1.5 hover:bg-surfaceLight min-h-[44px] active:scale-95"
+              >
+                <Edit2 size={14} className="text-primary" /> Edit Specs
+              </button>
+            )
+          }
+        />
+
+        {/* SUBSECTION 1: DETAILS & SPECS */}
+        {activeSubsection === 'details' && (
+          <div className="glass-panel p-5 space-y-4">
+            <h3 className="text-base font-bold text-textMain flex items-center gap-2">
+              <Car size={18} className="text-yellow-400" /> Technical & Registration Specs
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-3 rounded-xl bg-surface border border-glass">
+                <span className="text-textMuted block mb-1">Vehicle Name</span>
+                <strong className="text-textMain text-sm">{selectedVehicle.name}</strong>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass">
+                <span className="text-textMuted block mb-1">License Plate</span>
+                <strong className="font-mono text-primary text-sm font-bold">{selectedVehicle.licensePlate}</strong>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass">
+                <span className="text-textMuted block mb-1">Category & Type</span>
+                <strong className="text-textMain text-sm">{selectedVehicle.type}</strong>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass">
+                <span className="text-textMuted block mb-1">Make / Model / Year</span>
+                <strong className="text-textMain text-sm">{selectedVehicle.make || '—'} {selectedVehicle.model} ({selectedVehicle.year || 'N/A'})</strong>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass">
+                <span className="text-textMuted block mb-1">Color</span>
+                <strong className="text-textMain text-sm">{selectedVehicle.color || 'Not specified'}</strong>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass">
+                <span className="text-textMuted block mb-1">Current Odometer</span>
+                <strong className="font-mono text-yellow-400 text-sm">{Number(selectedVehicle.lastServiceOdo || 0).toLocaleString()} km</strong>
+              </div>
+            </div>
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => handleEditVehicle(selectedVehicle)}
+                className="px-4 py-2.5 bg-primary text-background rounded-xl text-xs font-semibold flex items-center gap-2 shadow-neon-primary-sm min-h-[44px]"
+              >
+                <Edit2 size={15} /> Update Specifications
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 2: RC BOOK */}
+        {activeSubsection === 'rc' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-primary">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold text-textMain">Registration Certificate (RC Book)</h3>
+                <p className="text-xs text-textMuted">Official motor vehicle registration record</p>
+              </div>
+              <span className="font-mono text-primary font-bold text-xs bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20">
+                {selectedVehicle.rcNumber || 'Pending'}
+              </span>
+            </div>
+
+            <div className="space-y-3 text-xs divide-y divide-glass">
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">RC Number:</span>
+                <strong className="font-mono text-textMain">{selectedVehicle.rcNumber || 'Not recorded'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Validity / Expiry:</span>
+                <strong className="text-textMain">{selectedVehicle.rcExpiry ? new Date(selectedVehicle.rcExpiry).toLocaleDateString() : 'N/A'}</strong>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-glass">
+              {selectedVehicle.rcDocUrl ? (
+                <a
+                  href={selectedVehicle.rcDocUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3 bg-primary/20 text-primary rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-primary/30 min-h-[44px]"
+                >
+                  <ExternalLink size={16} /> View Cloud RC Certificate ↗
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleEditVehicle(selectedVehicle)}
+                  className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
+                >
+                  Upload RC Document
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 3: INSURANCE POLICY */}
+        {activeSubsection === 'insurance' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-green-400">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold text-textMain">Comprehensive Insurance Policy</h3>
+                <p className="text-xs text-textMuted">Vehicle protection & liability coverage</p>
+              </div>
+              {selectedVehicle.insuranceExpiry && (() => {
+                const ins = calculateDaysRemaining(selectedVehicle.insuranceExpiry);
+                return (
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
+                    ins.isOverdue ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                    ins.daysRemaining <= 30 ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20' :
+                    'bg-green-500/10 text-green-400 border-green-500/20'
+                  }`}>
+                    {ins.isOverdue ? 'EXPIRED' : `${ins.daysRemaining} days left`}
+                  </span>
+                );
+              })()}
+            </div>
+
+            <div className="space-y-3 text-xs divide-y divide-glass">
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Provider:</span>
+                <strong className="text-textMain">{selectedVehicle.insuranceProvider || '—'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Policy Number:</span>
+                <strong className="font-mono text-textMain">{selectedVehicle.insurancePolicyNumber || '—'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Annual Premium:</span>
+                <strong className="text-green-400 font-bold">₹{Number(selectedVehicle.insurancePremium || 0).toLocaleString('en-IN')}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Expiry Date:</span>
+                <strong className="text-textMain">{selectedVehicle.insuranceExpiry ? new Date(selectedVehicle.insuranceExpiry).toLocaleDateString() : 'Not Set'}</strong>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-glass">
+              {selectedVehicle.insuranceDocUrl ? (
+                <a
+                  href={selectedVehicle.insuranceDocUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3 bg-green-500/20 text-green-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-green-500/30 min-h-[44px]"
+                >
+                  <ExternalLink size={16} /> View Cloud Insurance Policy ↗
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleEditVehicle(selectedVehicle)}
+                  className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
+                >
+                  Upload Insurance Policy PDF
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 4: PUC CERTIFICATE */}
+        {activeSubsection === 'puc' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-emerald-400">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold text-textMain">Pollution Under Control (PUC)</h3>
+                <p className="text-xs text-textMuted">Emission test certificate</p>
+              </div>
+              {selectedVehicle.pucExpiry && (() => {
+                const puc = calculateDaysRemaining(selectedVehicle.pucExpiry);
+                return (
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
+                    puc.isOverdue ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                    puc.daysRemaining <= 30 ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20' :
+                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  }`}>
+                    {puc.isOverdue ? 'EXPIRED' : `${puc.daysRemaining} days left`}
+                  </span>
+                );
+              })()}
+            </div>
+
+            <div className="space-y-3 text-xs divide-y divide-glass">
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">PUC Number:</span>
+                <strong className="font-mono text-textMain">{selectedVehicle.pucNumber || '—'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Expiry Date:</span>
+                <strong className="text-textMain">{selectedVehicle.pucExpiry ? new Date(selectedVehicle.pucExpiry).toLocaleDateString() : 'Not Set'}</strong>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-glass">
+              {selectedVehicle.pucDocUrl ? (
+                <a
+                  href={selectedVehicle.pucDocUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3 bg-emerald-500/20 text-emerald-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  <ExternalLink size={16} /> View PUC Certificate ↗
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleEditVehicle(selectedVehicle)}
+                  className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
+                >
+                  Upload PUC Document
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 5: DRIVING LICENCE & PERMITS */}
+        {activeSubsection === 'license' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-blue-400">
+            <h3 className="text-base font-bold text-textMain">Driving Licence & Permits</h3>
+            <div className="space-y-3 text-xs divide-y divide-glass">
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Primary Licence No:</span>
+                <strong className="font-mono text-textMain">{selectedVehicle.drivingLicenceNo || 'Not entered'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Linked Operator:</span>
+                <strong className="text-textMain">{user?.name || 'Owner'}</strong>
+              </div>
+            </div>
+            {selectedVehicle.drivingLicenceDocUrl ? (
+              <a
+                href={selectedVehicle.drivingLicenceDocUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3 bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <ExternalLink size={16} /> View Licence Document ↗
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleEditVehicle(selectedVehicle)}
+                className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
+              >
+                Link Driving Licence Document
               </button>
             )}
-            <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-              <Car className="text-yellow-400" size={28} />
-              {selectedVehicle ? selectedVehicle.name : 'Vehicle Manager'}
-            </h1>
           </div>
-          <p className="text-textMuted">
-            {selectedVehicle
-              ? `${selectedVehicle.type} • ${selectedVehicle.licensePlate} • Complete maintenance, fuel & document records`
-              : 'Fleet management, RC books, insurance, PUC, service reminders, and mileage tracking.'}
-          </p>
+        )}
+
+        {/* SUBSECTION 6: LOAN & HYPOTHECATION */}
+        {activeSubsection === 'loan' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-amber-400">
+            <h3 className="text-base font-bold text-textMain">Loan & Hypothecation Details</h3>
+            <div className="space-y-3 text-xs divide-y divide-glass">
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Financier / Bank:</span>
+                <strong className="text-textMain">{selectedVehicle.financier || 'None (Self-owned)'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Loan Account Number:</span>
+                <strong className="font-mono text-textMain">{selectedVehicle.loanAccountNo || '—'}</strong>
+              </div>
+            </div>
+            <div className="pt-2 flex justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/loans')}
+                className="flex-1 py-2.5 bg-surface border border-glass rounded-xl text-xs font-semibold text-primary hover:bg-surfaceLight min-h-[44px]"
+              >
+                Open Loan Manager ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => handleEditVehicle(selectedVehicle)}
+                className="px-4 py-2.5 bg-primary text-background rounded-xl text-xs font-semibold min-h-[44px]"
+              >
+                Edit Loan Specs
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 7 & 11: SERVICE, MAINTENANCE & REPAIRS */}
+        {(activeSubsection === 'service' || activeSubsection === 'repairs') && (
+          <div className="space-y-4">
+            {serviceLogs.length === 0 ? (
+              <EmptyState
+                icon={Wrench}
+                title="No service records logged"
+                description="Keep tabs on oil changes, tyre rotations, brake pad repairs, and garage invoices."
+                actionText="Log First Service"
+                onAction={() => setShowServiceModal(true)}
+              />
+            ) : (
+              <div className="space-y-3">
+                {serviceLogs.map((log: any) => (
+                  <div key={log._id} className="glass-panel p-4 border-l-4 border-l-yellow-400 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-textMain">{log.serviceType}</h4>
+                        <p className="text-[11px] text-textMuted">{new Date(log.date).toLocaleDateString()} • {log.garage || 'Workshop'}</p>
+                      </div>
+                      <span className="text-sm font-bold text-yellow-400">₹{Number(log.cost).toLocaleString('en-IN')}</span>
+                    </div>
+
+                    {log.notes && (
+                      <p className="text-xs text-textMuted bg-surface/60 p-2.5 rounded-lg border border-glass">
+                        {log.notes}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-glass text-textMuted">
+                      <span>Odometer: <strong className="text-textMain">{Number(log.odometer || 0).toLocaleString()} km</strong></span>
+                      <div className="flex items-center gap-3">
+                        {log.receiptUrl && (
+                          <a href={log.receiptUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium min-h-[36px] flex items-center">
+                            Invoice ↗
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({ id: log._id, type: 'service' })}
+                          className="text-red-400 hover:text-red-300 p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          aria-label="Delete service log"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SUBSECTION 8: ENGINE OIL & FILTER */}
+        {activeSubsection === 'oil' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-purple-400">
+            <h3 className="text-base font-bold text-textMain">Engine Oil & Filter Specifications</h3>
+            <div className="space-y-3 text-xs divide-y divide-glass">
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Recommended Oil Grade:</span>
+                <strong className="text-textMain">{selectedVehicle.engineOilType || '5W-30 Full Synthetic'}</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Last Change Odometer:</span>
+                <strong className="font-mono text-purple-400 font-bold">{Number(selectedVehicle.lastOilChangeOdo || selectedVehicle.lastServiceOdo || 0).toLocaleString()} km</strong>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-textMuted">Interval Recommendation:</span>
+                <strong className="text-textMain">Every 10,000 km or 12 months</strong>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowServiceModal(true)}
+              className="w-full py-3 bg-primary text-background rounded-xl text-xs font-semibold shadow-neon-primary-sm min-h-[44px]"
+            >
+              Record Oil & Filter Service
+            </button>
+          </div>
+        )}
+
+        {/* SUBSECTION 9: FUEL LOG & MILEAGE */}
+        {activeSubsection === 'fuel' && (
+          <div className="space-y-4">
+            {fuelLogs.length === 0 ? (
+              <EmptyState
+                icon={Fuel}
+                title="No fuel entries recorded"
+                description="Add fuel fill-up logs to automatically calculate vehicle mileage in km/L."
+                actionText="Record Fill-up"
+                onAction={() => setShowFuelModal(true)}
+              />
+            ) : (
+              <div className="space-y-3">
+                {fuelLogs.map((log: any) => (
+                  <div key={log._id} className="glass-panel p-4 border-l-4 border-l-primary space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-textMain">{log.liters} L {log.fuelType}</span>
+                          {Number(log.mileage) > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold">
+                              {log.mileage} km/L
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-textMuted">{new Date(log.date).toLocaleDateString()} • {log.station || 'Fuel Station'}</p>
+                      </div>
+                      <span className="text-sm font-bold text-green-400">₹{Number(log.cost).toLocaleString('en-IN')}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-glass text-textMuted">
+                      <span>Odo: <strong className="text-textMain">{Number(log.odometer).toLocaleString()} km</strong> (₹{log.pricePerLiter}/L)</span>
+                      <div className="flex items-center gap-2">
+                        {log.receiptUrl && (
+                          <a href={log.receiptUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline text-xs min-h-[36px] flex items-center">
+                            Receipt ↗
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({ id: log._id, type: 'fuel' })}
+                          className="text-red-400 hover:text-red-300 p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          aria-label="Delete fuel log"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SUBSECTION 10: TYRE & BATTERY */}
+        {activeSubsection === 'tyre-battery' && (
+          <div className="glass-panel p-5 space-y-4 border-t-4 border-t-teal-400">
+            <h3 className="text-base font-bold text-textMain">Tyre Pressures & Battery Health</h3>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-surface rounded-xl border border-glass">
+                <span className="text-textMuted block mb-1">Front Tyre Pressure</span>
+                <strong className="text-teal-400 text-sm font-bold">{selectedVehicle.tyrePressureFront || '32'} PSI</strong>
+              </div>
+              <div className="p-3 bg-surface rounded-xl border border-glass">
+                <span className="text-textMuted block mb-1">Rear Tyre Pressure</span>
+                <strong className="text-teal-400 text-sm font-bold">{selectedVehicle.tyrePressureRear || '34'} PSI</strong>
+              </div>
+              <div className="p-3 bg-surface rounded-xl border border-glass">
+                <span className="text-textMuted block mb-1">Tyre Brand</span>
+                <strong className="text-textMain text-sm">{selectedVehicle.tyreBrand || 'OEM / Standard'}</strong>
+              </div>
+              <div className="p-3 bg-surface rounded-xl border border-glass">
+                <span className="text-textMuted block mb-1">Battery Make</span>
+                <strong className="text-textMain text-sm">{selectedVehicle.batteryMake || 'Exide / Amaron'}</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 12: EXPENSES BREAKDOWN */}
+        {activeSubsection === 'expenses' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="glass-panel p-4 border-t-4 border-t-green-400">
+                <span className="text-xs text-textMuted">Fuel Total</span>
+                <div className="text-xl font-bold text-green-400 mt-1">₹{totalFuelCost.toLocaleString('en-IN')}</div>
+              </div>
+              <div className="glass-panel p-4 border-t-4 border-t-yellow-400">
+                <span className="text-xs text-textMuted">Maintenance Total</span>
+                <div className="text-xl font-bold text-yellow-400 mt-1">₹{totalServiceCost.toLocaleString('en-IN')}</div>
+              </div>
+              <div className="glass-panel p-4 border-t-4 border-t-primary">
+                <span className="text-xs text-textMuted">Insurance Premium</span>
+                <div className="text-xl font-bold text-primary mt-1">₹{Number(selectedVehicle.insurancePremium || 0).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+
+            <div className="glass-panel p-5">
+              <h3 className="text-sm font-bold text-textMain mb-2">Lifetime Vehicle Cost</h3>
+              <div className="text-3xl font-bold text-textMain">₹{totalVehicleExpense.toLocaleString('en-IN')}</div>
+              <p className="text-xs text-textMuted mt-1">Cumulative expenditure logged across all services and fuel.</p>
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 13: UPLOADED DOCUMENTS */}
+        {activeSubsection === 'documents' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { title: 'RC Certificate', url: selectedVehicle.rcDocUrl, type: 'RC' },
+              { title: 'Insurance Policy', url: selectedVehicle.insuranceDocUrl, type: 'Insurance' },
+              { title: 'PUC Certificate', url: selectedVehicle.pucDocUrl, type: 'PUC' },
+              { title: 'Driving Licence', url: selectedVehicle.drivingLicenceDocUrl, type: 'DL' }
+            ].map(doc => (
+              <div key={doc.type} className="glass-panel p-4 flex flex-col justify-between">
+                <div>
+                  <h4 className="font-bold text-xs text-textMain mb-1">{doc.title}</h4>
+                  <p className="text-[10px] text-textMuted">{doc.url ? 'Available in Cloud Storage' : 'Not uploaded'}</p>
+                </div>
+                <div className="pt-3 mt-3 border-t border-glass">
+                  {doc.url ? (
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2 bg-primary/20 text-primary rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[44px]"
+                    >
+                      <ExternalLink size={14} /> Open Document ↗
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleEditVehicle(selectedVehicle)}
+                      className="w-full py-2 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
+                    >
+                      Upload Now
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* SUBSECTION 14: RENEWALS & REMINDERS */}
+        {activeSubsection === 'reminders' && (
+          <div className="glass-panel p-5 space-y-4">
+            <h3 className="text-base font-bold text-textMain flex items-center gap-2">
+              <Clock size={18} className="text-yellow-400" /> Upcoming Deadlines & Maintenance
+            </h3>
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-surface border border-glass flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-xs text-textMain">Next Scheduled Service</p>
+                  <p className="text-[11px] text-textMuted">Odo Target: {selectedVehicle.nextServiceOdo || '—'} km</p>
+                </div>
+                <span className="text-xs font-bold text-primary font-mono">{selectedVehicle.nextServiceDate ? new Date(selectedVehicle.nextServiceDate).toLocaleDateString() : 'Pending'}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-xs text-textMain">Insurance Expiry</p>
+                  <p className="text-[11px] text-textMuted">Provider: {selectedVehicle.insuranceProvider || '—'}</p>
+                </div>
+                <span className="text-xs font-bold text-green-400 font-mono">{selectedVehicle.insuranceExpiry ? new Date(selectedVehicle.insuranceExpiry).toLocaleDateString() : 'No date'}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface border border-glass flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-xs text-textMain">PUC Renewal</p>
+                  <p className="text-[11px] text-textMuted">Emission check</p>
+                </div>
+                <span className="text-xs font-bold text-emerald-400 font-mono">{selectedVehicle.pucExpiry ? new Date(selectedVehicle.pucExpiry).toLocaleDateString() : 'No date'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SUBSECTION 15: REPORTS & EXPORT */}
+        {activeSubsection === 'reports' && (
+          <div className="glass-panel p-5 space-y-4">
+            <h3 className="text-base font-bold text-textMain flex items-center gap-2">
+              <BarChart3 size={18} className="text-primary" /> Vehicle Audit & Data Export
+            </h3>
+            <p className="text-xs text-textMuted leading-relaxed">
+              Export all verified fuel logs, service workshop records, and maintenance expenses for {selectedVehicle.name} to CSV format.
+            </p>
+            <button
+              type="button"
+              onClick={() => exportToCSV([...fuelLogs, ...serviceLogs], `${selectedVehicle.name}_Logs`)}
+              className="px-4 py-3 bg-primary text-background rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-neon-primary-sm min-h-[44px]"
+            >
+              <Download size={16} /> Export All Logs to CSV
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // LEVEL 2: DEDICATED VEHICLE OVERVIEW (Selected Vehicle)
+  // =========================================================================
+  if (selectedVehicle) {
+    return (
+      <div className="space-y-6 pb-12">
+        {/* Strict single-level back: returns to Vehicle Fleet (/vehicles) */}
+        <MobilePageHeader
+          title={selectedVehicle.name}
+          parentLabel="Vehicle Fleet"
+          fallbackPath="/vehicles"
+          onBack={backToFleet}
+          icon={<Car className="text-yellow-400" size={24} />}
+          badge={selectedVehicle.licensePlate}
+          subtitle={`${selectedVehicle.type} • ${selectedVehicle.make || ''} ${selectedVehicle.model || ''}`}
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleEditVehicle(selectedVehicle)}
+                className="p-2.5 rounded-xl bg-surface border border-glass text-textMuted hover:text-textMain min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Edit Vehicle"
+              >
+                <Edit2 size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget({ id: selectedVehicle._id, type: 'vehicle' })}
+                className="p-2.5 rounded-xl bg-surface border border-glass text-textMuted hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Delete Vehicle"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          }
+        />
+
+        {/* Hero KPI Summary Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="glass-panel p-3.5 border-t-2 border-t-yellow-400">
+            <span className="text-[10px] text-textMuted font-medium uppercase">Total Cost</span>
+            <div className="text-base sm:text-xl font-bold text-textMain mt-0.5">₹{totalVehicleExpense.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-textMuted mt-0.5">Fuel + Service + Policy</p>
+          </div>
+          <div className="glass-panel p-3.5 border-t-2 border-t-primary">
+            <span className="text-[10px] text-textMuted font-medium uppercase">Mileage</span>
+            <div className="text-base sm:text-xl font-bold text-primary mt-0.5">{avgMileage} km/L</div>
+            <p className="text-[10px] text-textMuted mt-0.5">{validMileageLogs.length} verified fill-ups</p>
+          </div>
+          <div className="glass-panel p-3.5 border-t-2 border-t-green-400">
+            <span className="text-[10px] text-textMuted font-medium uppercase">Fuel Spent</span>
+            <div className="text-base sm:text-xl font-bold text-green-400 mt-0.5">₹{totalFuelCost.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-textMuted mt-0.5">{fuelLogs.length} logs</p>
+          </div>
+          <div className="glass-panel p-3.5 border-t-2 border-t-red-400">
+            <span className="text-[10px] text-textMuted font-medium uppercase">Maintenance</span>
+            <div className="text-base sm:text-xl font-bold text-red-400 mt-0.5">₹{totalServiceCost.toLocaleString('en-IN')}</div>
+            <p className="text-[10px] text-textMuted mt-0.5">{serviceLogs.length} visits</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {selectedVehicle ? (
-            <>
-              <button
-                onClick={() => exportToCSV([...fuelLogs, ...serviceLogs], `${selectedVehicle.name}_Logs`)}
-                className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
+        {/* 
+          14 SUBSECTION NAVIGATION GRID
+          Displays all subsections as tappable cards.
+          Tapping pushes ?vehicleId=...&sub=... to router history.
+        */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-textMuted flex items-center gap-1.5">
+              <Sparkles size={14} className="text-primary" /> Vehicle Subsections & Records
+            </h2>
+            <span className="text-[11px] text-textMuted">Tap to open detail</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {vehicleSubsections.map((sub) => (
+              <motion.button
+                key={sub.id}
+                type="button"
+                whileTap={{ scale: 0.98 }}
+                onClick={() => openSubsection(sub.id)}
+                className="w-full text-left glass-panel p-4 border border-glass hover:border-primary/40 hover:bg-surfaceLight transition-all active:scale-95 flex items-center justify-between gap-3 min-h-[64px] group"
               >
-                <Download size={16} /> Export Logs
-              </button>
-              <button
-                onClick={() => setShowFuelModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-primary text-background font-medium text-sm flex items-center gap-2 hover:bg-primary/90 shadow-neon-primary-sm"
-              >
-                <Fuel size={16} /> Log Fuel
-              </button>
-              <button
-                onClick={() => setShowServiceModal(true)}
-                className="px-3.5 py-2 rounded-xl bg-yellow-400 text-black font-medium text-sm flex items-center gap-2 hover:bg-yellow-300 shadow-[0_0_15px_rgba(250,204,21,0.4)]"
-              >
-                <Wrench size={16} /> Log Service
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => { setEditVehicleId(null); resetVehicleForm(); setShowVehicleModal(true); }}
-              className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 font-medium text-sm shadow-neon-primary-sm"
-            >
-              <Plus size={18} /> Add Vehicle
-            </button>
-          )}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-surface border border-glass group-hover:scale-105 transition-transform shrink-0">
+                    {sub.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-xs sm:text-sm text-textMain group-hover:text-primary transition-colors truncate">
+                        {sub.title}
+                      </h3>
+                      {sub.badge && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-surface border border-glass text-textMuted group-hover:text-textMain shrink-0">
+                          {sub.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-textMuted truncate mt-0.5">
+                      {sub.summary}
+                    </p>
+                  </div>
+                </div>
+
+                <ChevronRight size={16} className="text-textMuted group-hover:text-primary transition-colors shrink-0" />
+              </motion.button>
+            ))}
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* VIEW 1: FLEET OVERVIEW (when no vehicle selected) */}
-      {!selectedVehicle ? (
-        loading ? (
-          <LoadingSpinner />
-        ) : vehicles.length === 0 ? (
-          <EmptyState
-            icon={Car}
-            title="No vehicles in registry"
-            description="Register your cars, bikes, scooters, or tractors to track insurance renewals, fuel logs, and service history."
-            actionText="Register Vehicle"
-            onAction={() => { setEditVehicleId(null); resetVehicleForm(); setShowVehicleModal(true); }}
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {vehicles.map((v: any) => {
-              const insDays = calculateDaysRemaining(v.insuranceExpiry);
-              const pucDays = calculateDaysRemaining(v.pucExpiry);
+  // =========================================================================
+  // LEVEL 1: FLEET OVERVIEW (Vehicle Manager Fleet Page)
+  // =========================================================================
+  return (
+    <div className="space-y-6 pb-12">
+      {/* Strict single-level back: returns to Dashboard (/) */}
+      <MobilePageHeader
+        title="Vehicle Manager"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Car className="text-yellow-400" size={24} />}
+        subtitle="Manage fleet, RC books, insurance, PUC, fuel logs, and service reminders."
+        actions={
+          <button
+            type="button"
+            onClick={() => { setEditVehicleId(null); resetVehicleForm(); setShowVehicleModal(true); }}
+            className="bg-primary text-background px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-neon-primary-sm min-h-[44px] active:scale-95"
+          >
+            <Plus size={16} /> Add Vehicle
+          </button>
+        }
+      />
 
-              return (
-                <motion.div
-                  key={v._id}
-                  whileHover={{ y: -4 }}
-                  onClick={() => setSelectedVehicle(v)}
-                  className="glass-panel p-6 cursor-pointer border-t-4 border-t-yellow-400 hover:shadow-neon-primary-sm transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-surface border border-glass rounded-xl text-yellow-400">
-                          <Car size={24} />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-textMain">{v.name}</h3>
-                          <span className="text-xs font-mono px-2 py-0.5 rounded bg-background/60 border border-glass text-primary font-bold">
-                            {v.licensePlate}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleEditVehicle(v)}
-                          className="p-1.5 text-textMuted hover:text-primary transition-colors"
-                          title="Edit Vehicle"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget({ id: v._id, type: 'vehicle' })}
-                          className="p-1.5 text-textMuted hover:text-red-400 transition-colors"
-                          title="Delete Vehicle"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 py-3 border-y border-glass text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-textMuted">Type / Make:</span>
-                        <span className="font-medium text-textMain">{v.type} {v.make ? `• ${v.make}` : ''}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-textMuted">Insurance Expiry:</span>
-                        <span className={`font-semibold ${insDays.isOverdue ? 'text-red-400' : insDays.daysRemaining <= 30 ? 'text-yellow-400' : 'text-textMain'}`}>
-                          {v.insuranceExpiry ? `${new Date(v.insuranceExpiry).toLocaleDateString()} (${insDays.daysRemaining}d)` : 'Not set'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-textMuted">PUC Expiry:</span>
-                        <span className={`font-semibold ${pucDays.isOverdue ? 'text-red-400' : pucDays.daysRemaining <= 30 ? 'text-yellow-400' : 'text-textMain'}`}>
-                          {v.pucExpiry ? `${new Date(v.pucExpiry).toLocaleDateString()} (${pucDays.daysRemaining}d)` : 'Not set'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-2 flex items-center justify-between text-xs text-primary font-medium">
-                    <span>View Logs & Dashboard</span>
-                    <ChevronRight size={16} />
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )
+      {vehicles.length === 0 ? (
+        <EmptyState
+          icon={Car}
+          title="No vehicles in registry"
+          description="Register your cars, bikes, scooters, or tractors to track insurance renewals, fuel logs, and service history."
+          actionText="Register Vehicle"
+          onAction={() => { setEditVehicleId(null); resetVehicleForm(); setShowVehicleModal(true); }}
+        />
       ) : (
-        /* VIEW 2: DEDICATED VEHICLE DETAILS DASHBOARD */
-        <div className="space-y-6">
-          {/* KPI Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="glass-panel p-5 border-t-4 border-t-yellow-400">
-              <span className="text-xs text-textMuted font-medium">Total Vehicle Cost</span>
-              <div className="text-2xl font-bold text-textMain mt-1">₹{totalVehicleExpense.toLocaleString('en-IN')}</div>
-              <p className="text-[11px] text-textMuted mt-1">Fuel + Service + Insurance</p>
-            </div>
-            <div className="glass-panel p-5 border-t-4 border-t-primary">
-              <span className="text-xs text-textMuted font-medium">Average Mileage</span>
-              <div className="text-2xl font-bold text-primary mt-1">{avgMileage} km/L</div>
-              <p className="text-[11px] text-textMuted mt-1">From {validMileageLogs.length} verified fill-ups</p>
-            </div>
-            <div className="glass-panel p-5 border-t-4 border-t-green-400">
-              <span className="text-xs text-textMuted font-medium">Fuel Expenses</span>
-              <div className="text-2xl font-bold text-green-400 mt-1">₹{totalFuelCost.toLocaleString('en-IN')}</div>
-              <p className="text-[11px] text-textMuted mt-1">{fuelLogs.length} total fuel logs</p>
-            </div>
-            <div className="glass-panel p-5 border-t-4 border-t-red-400">
-              <span className="text-xs text-textMuted font-medium">Maintenance & Repairs</span>
-              <div className="text-2xl font-bold text-red-400 mt-1">₹{totalServiceCost.toLocaleString('en-IN')}</div>
-              <p className="text-[11px] text-textMuted mt-1">{serviceLogs.length} workshop visits</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {vehicles.map((v: any) => {
+            const insDays = calculateDaysRemaining(v.insuranceExpiry);
+            const pucDays = calculateDaysRemaining(v.pucExpiry);
 
-          {/* Sub-tabs */}
-          <div className="flex items-center gap-2 border-b border-glass pb-1">
-            <button
-              onClick={() => setDetailTab('overview')}
-              className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
-                detailTab === 'overview' ? 'bg-surface text-primary border-t-2 border-primary' : 'text-textMuted hover:text-textMain'
-              }`}
-            >
-              Vehicle Overview & Reminders
-            </button>
-            <button
-              onClick={() => setDetailTab('fuel')}
-              className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
-                detailTab === 'fuel' ? 'bg-surface text-primary border-t-2 border-primary' : 'text-textMuted hover:text-textMain'
-              }`}
-            >
-              Fuel Log & Mileage ({fuelLogs.length})
-            </button>
-            <button
-              onClick={() => setDetailTab('service')}
-              className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
-                detailTab === 'service' ? 'bg-surface text-primary border-t-2 border-primary' : 'text-textMuted hover:text-textMain'
-              }`}
-            >
-              Service & Repairs ({serviceLogs.length})
-            </button>
-            <button
-              onClick={() => setDetailTab('documents')}
-              className={`px-4 py-2 font-medium text-sm rounded-t-xl transition-colors ${
-                detailTab === 'documents' ? 'bg-surface text-primary border-t-2 border-primary' : 'text-textMuted hover:text-textMain'
-              }`}
-            >
-              RC, Insurance & PUC Docs
-            </button>
-          </div>
-
-          {/* SUBTAB 1: OVERVIEW & REMINDERS */}
-          {detailTab === 'overview' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="glass-panel p-6 space-y-4">
-                <h3 className="text-lg font-bold text-textMain flex items-center gap-2">
-                  <ShieldCheck className="text-primary" size={20} /> Registration & Policy Specs
-                </h3>
-                <div className="space-y-3 text-sm divide-y divide-glass">
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">License Plate:</span>
-                    <span className="font-mono font-bold text-textMain">{selectedVehicle.licensePlate}</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">Type / Category:</span>
-                    <span className="text-textMain font-medium">{selectedVehicle.type}</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">Make / Model / Year:</span>
-                    <span className="text-textMain font-medium">{selectedVehicle.make || '—'} {selectedVehicle.model} ({selectedVehicle.year || 'N/A'})</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">RC Number:</span>
-                    <span className="font-mono text-textMain">{selectedVehicle.rcNumber || '—'}</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">Insurance Provider:</span>
-                    <span className="text-textMain font-medium">{selectedVehicle.insuranceProvider || '—'} ({selectedVehicle.insurancePolicyNumber || 'No Policy #'})</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">PUC Number:</span>
-                    <span className="font-mono text-textMain">{selectedVehicle.pucNumber || '—'}</span>
-                  </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-textMuted">Hypothecation / Financier:</span>
-                    <span className="text-textMain font-medium">{selectedVehicle.financier || 'None (Self-owned)'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Renewal Alerts & Service Schedule */}
-              <div className="glass-panel p-6 space-y-4">
-                <h3 className="text-lg font-bold text-textMain flex items-center gap-2">
-                  <Clock className="text-yellow-400" size={20} /> Expiry & Service Reminders
-                </h3>
-                <div className="space-y-3">
-                  {/* Insurance Alert */}
-                  {selectedVehicle.insuranceExpiry && (() => {
-                    const ins = calculateDaysRemaining(selectedVehicle.insuranceExpiry);
-                    return (
-                      <div className={`p-4 rounded-xl border flex items-center justify-between ${
-                        ins.isOverdue ? 'bg-red-500/10 border-red-500/30 text-red-400' :
-                        ins.daysRemaining <= 30 ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300' :
-                        'bg-surface border-glass text-textMain'
-                      }`}>
-                        <div>
-                          <p className="font-bold text-sm">Insurance Policy Expiry</p>
-                          <p className="text-xs text-textMuted">Due on {new Date(selectedVehicle.insuranceExpiry).toLocaleDateString()}</p>
-                        </div>
-                        <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-full bg-background/50 border border-current">
-                          {ins.isOverdue ? 'EXPIRED' : `${ins.daysRemaining} days left`}
+            return (
+              <motion.div
+                key={v._id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => openVehicle(v)}
+                className="glass-panel p-5 cursor-pointer border-t-4 border-t-yellow-400 hover:shadow-neon-primary-sm transition-all flex flex-col justify-between group active:scale-95"
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2.5 bg-surface border border-glass rounded-xl text-yellow-400 shrink-0 group-hover:scale-105 transition-transform">
+                        <Car size={22} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold text-textMain group-hover:text-primary transition-colors truncate">{v.name}</h3>
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-background/60 border border-glass text-primary font-bold">
+                          {v.licensePlate}
                         </span>
                       </div>
-                    );
-                  })()}
-
-                  {/* PUC Alert */}
-                  {selectedVehicle.pucExpiry && (() => {
-                    const puc = calculateDaysRemaining(selectedVehicle.pucExpiry);
-                    return (
-                      <div className={`p-4 rounded-xl border flex items-center justify-between ${
-                        puc.isOverdue ? 'bg-red-500/10 border-red-500/30 text-red-400' :
-                        puc.daysRemaining <= 30 ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300' :
-                        'bg-surface border-glass text-textMain'
-                      }`}>
-                        <div>
-                          <p className="font-bold text-sm">PUC Certificate Expiry</p>
-                          <p className="text-xs text-textMuted">Due on {new Date(selectedVehicle.pucExpiry).toLocaleDateString()}</p>
-                        </div>
-                        <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-full bg-background/50 border border-current">
-                          {puc.isOverdue ? 'EXPIRED' : `${puc.daysRemaining} days left`}
-                        </span>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Next Service Due */}
-                  <div className="p-4 rounded-xl bg-surface border border-glass flex items-center justify-between text-textMain">
-                    <div>
-                      <p className="font-bold text-sm">Next Scheduled Service</p>
-                      <p className="text-xs text-textMuted">
-                        Target: {selectedVehicle.nextServiceOdo ? `${Number(selectedVehicle.nextServiceOdo).toLocaleString()} km` : 'Not set'}
-                        {selectedVehicle.nextServiceDate ? ` • ${new Date(selectedVehicle.nextServiceDate).toLocaleDateString()}` : ''}
-                      </p>
                     </div>
-                    <span className="text-xs font-mono text-primary font-bold">
-                      Last: {selectedVehicle.lastServiceOdo ? `${Number(selectedVehicle.lastServiceOdo).toLocaleString()} km` : 'N/A'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SUBTAB 2: FUEL LOGS */}
-          {detailTab === 'fuel' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-textMain">Fuel Fill-up History & Mileage</h3>
-                <button
-                  onClick={() => setShowFuelModal(true)}
-                  className="bg-primary text-background px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 hover:bg-primary/90 shadow-neon-primary-sm"
-                >
-                  <Plus size={16} /> Add Fill-up
-                </button>
-              </div>
-
-              {fuelLogs.length === 0 ? (
-                <EmptyState
-                  icon={Fuel}
-                  title="No fuel logs recorded"
-                  description="Record fuel fill-ups with odometer readings to calculate exact km/L mileage automatically."
-                  actionText="Add First Fill-up"
-                  onAction={() => setShowFuelModal(true)}
-                />
-              ) : (
-                <div className="glass-panel overflow-hidden border border-glass">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-glass bg-surface/50 text-xs font-semibold text-textMuted uppercase">
-                          <th className="py-3 px-4">Date</th>
-                          <th className="py-3 px-4">Odometer</th>
-                          <th className="py-3 px-4">Quantity</th>
-                          <th className="py-3 px-4">Rate / Unit</th>
-                          <th className="py-3 px-4 text-right">Cost</th>
-                          <th className="py-3 px-4 text-center">Mileage</th>
-                          <th className="py-3 px-4 text-center">Receipt</th>
-                          <th className="py-3 px-4 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-glass">
-                        {fuelLogs.map((log: any) => (
-                          <tr key={log._id} className="hover:bg-surface/30">
-                            <td className="py-3 px-4 text-xs text-textMuted">{new Date(log.date).toLocaleDateString()}</td>
-                            <td className="py-3 px-4 font-mono font-medium text-textMain">{Number(log.odometer).toLocaleString()} km</td>
-                            <td className="py-3 px-4 text-textMain">{log.liters} L ({log.fuelType})</td>
-                            <td className="py-3 px-4 text-textMuted">₹{log.pricePerLiter}</td>
-                            <td className="py-3 px-4 text-right font-bold text-green-400">₹{Number(log.cost).toLocaleString('en-IN')}</td>
-                            <td className="py-3 px-4 text-center">
-                              {Number(log.mileage) > 0 ? (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold">
-                                  {log.mileage} km/L
-                                </span>
-                              ) : (
-                                <span className="text-xs text-textMuted">—</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              {log.receiptUrl ? (
-                                <a href={log.receiptUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View ↗</a>
-                              ) : '—'}
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <button
-                                onClick={() => setDeleteTarget({ id: log._id, type: 'fuel' })}
-                                className="p-1.5 text-textMuted hover:text-red-400"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* SUBTAB 3: SERVICE LOGS */}
-          {detailTab === 'service' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-textMain">Service, Maintenance & Part Replacements</h3>
-                <button
-                  onClick={() => setShowServiceModal(true)}
-                  className="bg-yellow-400 text-black px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 hover:bg-yellow-300 shadow-[0_0_15px_rgba(250,204,21,0.4)]"
-                >
-                  <Plus size={16} /> Log Service
-                </button>
-              </div>
-
-              {serviceLogs.length === 0 ? (
-                <EmptyState
-                  icon={Wrench}
-                  title="No maintenance records"
-                  description="Log oil changes, tyre rotations, brake pad replacements, and garage invoices."
-                  actionText="Log Maintenance"
-                  onAction={() => setShowServiceModal(true)}
-                />
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {serviceLogs.map((log: any) => (
-                    <div key={log._id} className="glass-panel p-5 border-l-4 border-l-yellow-400 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="font-bold text-textMain">{log.serviceType}</h4>
-                            <p className="text-xs text-textMuted">{new Date(log.date).toLocaleDateString()} • {log.garage || 'Independent Workshop'}</p>
-                          </div>
-                          <span className="text-base font-bold text-yellow-400">₹{Number(log.cost).toLocaleString('en-IN')}</span>
-                        </div>
-                        {log.notes && <p className="text-xs text-textMuted bg-surface/50 p-2.5 rounded-lg border border-glass my-2">{log.notes}</p>}
-                        <div className="flex items-center justify-between text-xs text-textMuted pt-2">
-                          <span>Odometer: <strong className="text-textMain">{Number(log.odometer || 0).toLocaleString()} km</strong></span>
-                          {log.receiptUrl && <a href={log.receiptUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">Invoice ↗</a>}
-                        </div>
-                      </div>
-                      <div className="pt-3 border-t border-glass flex justify-end">
-                        <button onClick={() => setDeleteTarget({ id: log._id, type: 'service' })} className="text-textMuted hover:text-red-400 text-xs flex items-center gap-1">
-                          <Trash2 size={13} /> Remove Log
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => handleEditVehicle(v)}
+                        className="p-2 text-textMuted hover:text-primary transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label="Edit vehicle"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget({ id: v._id, type: 'vehicle' })}
+                        className="p-2 text-textMuted hover:text-red-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label="Delete vehicle"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* SUBTAB 4: DOCUMENTS */}
-          {detailTab === 'documents' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* RC Doc */}
-              <div className="glass-panel p-6 flex flex-col justify-between border-t-2 border-primary">
-                <div>
-                  <div className="p-3 bg-surface border border-glass text-primary rounded-xl w-fit mb-3">
-                    <FileText size={22} />
                   </div>
-                  <h4 className="font-bold text-textMain">Registration Certificate (RC)</h4>
-                  <p className="text-xs text-textMuted mt-1">Number: {selectedVehicle.rcNumber || 'Not entered'}</p>
-                  <p className="text-xs text-textMuted">Expiry: {selectedVehicle.rcExpiry ? new Date(selectedVehicle.rcExpiry).toLocaleDateString() : 'N/A'}</p>
-                </div>
-                <div className="mt-4 pt-3 border-t border-glass">
-                  {selectedVehicle.rcDocUrl ? (
-                    <a href={selectedVehicle.rcDocUrl} target="_blank" rel="noreferrer" className="w-full py-2 bg-primary/20 text-primary rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-primary/30">
-                      View RC Book ↗
-                    </a>
-                  ) : (
-                    <button onClick={() => handleEditVehicle(selectedVehicle)} className="w-full py-2 bg-surface text-textMuted hover:text-textMain rounded-xl text-xs font-medium border border-glass">
-                      Upload Document
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              {/* Insurance Doc */}
-              <div className="glass-panel p-6 flex flex-col justify-between border-t-2 border-green-400">
-                <div>
-                  <div className="p-3 bg-surface border border-glass text-green-400 rounded-xl w-fit mb-3">
-                    <ShieldCheck size={22} />
+                  <div className="space-y-2 py-2.5 border-y border-glass text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-textMuted">Type:</span>
+                      <span className="font-medium text-textMain">{v.type} {v.make ? `• ${v.make}` : ''}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-textMuted">Insurance:</span>
+                      <span className={`font-semibold ${insDays.isOverdue ? 'text-red-400' : insDays.daysRemaining <= 30 ? 'text-yellow-400' : 'text-textMain'}`}>
+                        {v.insuranceExpiry ? `${insDays.daysRemaining}d left` : 'Not set'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-textMuted">PUC Expiry:</span>
+                      <span className={`font-semibold ${pucDays.isOverdue ? 'text-red-400' : pucDays.daysRemaining <= 30 ? 'text-yellow-400' : 'text-textMain'}`}>
+                        {v.pucExpiry ? `${pucDays.daysRemaining}d left` : 'Not set'}
+                      </span>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-textMain">Insurance Policy</h4>
-                  <p className="text-xs text-textMuted mt-1">Provider: {selectedVehicle.insuranceProvider || '—'}</p>
-                  <p className="text-xs text-textMuted">Policy: {selectedVehicle.insurancePolicyNumber || '—'}</p>
-                  <p className="text-xs text-textMuted">Expiry: {selectedVehicle.insuranceExpiry ? new Date(selectedVehicle.insuranceExpiry).toLocaleDateString() : 'N/A'}</p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-glass">
-                  {selectedVehicle.insuranceDocUrl ? (
-                    <a href={selectedVehicle.insuranceDocUrl} target="_blank" rel="noreferrer" className="w-full py-2 bg-green-500/20 text-green-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-green-500/30">
-                      View Policy ↗
-                    </a>
-                  ) : (
-                    <button onClick={() => handleEditVehicle(selectedVehicle)} className="w-full py-2 bg-surface text-textMuted hover:text-textMain rounded-xl text-xs font-medium border border-glass">
-                      Upload Document
-                    </button>
-                  )}
-                </div>
-              </div>
 
-              {/* PUC Doc */}
-              <div className="glass-panel p-6 flex flex-col justify-between border-t-2 border-yellow-400">
-                <div>
-                  <div className="p-3 bg-surface border border-glass text-yellow-400 rounded-xl w-fit mb-3">
-                    <Gauge size={22} />
-                  </div>
-                  <h4 className="font-bold text-textMain">PUC Certificate</h4>
-                  <p className="text-xs text-textMuted mt-1">Cert #: {selectedVehicle.pucNumber || '—'}</p>
-                  <p className="text-xs text-textMuted">Expiry: {selectedVehicle.pucExpiry ? new Date(selectedVehicle.pucExpiry).toLocaleDateString() : 'N/A'}</p>
+                <div className="mt-3 pt-2 flex items-center justify-between text-xs text-primary font-semibold">
+                  <span>Open Vehicle Overview</span>
+                  <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </div>
-                <div className="mt-4 pt-3 border-t border-glass">
-                  {selectedVehicle.pucDocUrl ? (
-                    <a href={selectedVehicle.pucDocUrl} target="_blank" rel="noreferrer" className="w-full py-2 bg-yellow-400/20 text-yellow-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-yellow-400/30">
-                      View PUC ↗
-                    </a>
-                  ) : (
-                    <button onClick={() => handleEditVehicle(selectedVehicle)} className="w-full py-2 bg-surface text-textMuted hover:text-textMain rounded-xl text-xs font-medium border border-glass">
-                      Upload Document
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            );
+          })}
         </div>
       )}
 
-      {/* VEHICLE REGISTRATION MODAL */}
+      {/* MODAL: ADD / EDIT VEHICLE (Mobile optimized single column with touch inputs) */}
       <AnimatePresence>
         {showVehicleModal && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowVehicleModal(false)}>
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" onClick={() => setShowVehicleModal(false)}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-lg glass-panel p-5 sm:p-6 my-8 max-h-[90vh] overflow-y-auto custom-scrollbar"
               onClick={(e) => e.stopPropagation()}
-              className="glass-panel max-w-2xl w-full p-6 border border-glass shadow-neon-primary-sm max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4">
-                {editVehicleId ? 'Edit Vehicle Profile' : 'Register New Vehicle'}
-              </h2>
-              <form onSubmit={handleSaveVehicle} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between mb-4 border-b border-glass pb-3">
+                <h2 className="text-lg font-bold text-textMain">
+                  {editVehicleId ? 'Edit Vehicle Specifications' : 'Register New Vehicle'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowVehicleModal(false)}
+                  className="p-2 text-textMuted hover:text-textMain min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveVehicle} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-textMuted font-semibold mb-1">Vehicle Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={vehicleFormData.name}
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, name: e.target.value })}
+                    placeholder="e.g. My Royal Enfield / Honda City"
+                    className="w-full p-3 rounded-xl bg-surface border border-glass text-textMain outline-none focus:border-primary min-h-[44px]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Vehicle Name / Nickname *</label>
-                    <input
-                      type="text"
-                      required
-                      value={vehicleFormData.name}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, name: e.target.value })}
-                      placeholder="e.g. My Honda City, Farm Tractor"
-                      className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain focus:outline-none focus:border-primary"
-                    />
+                    <label className="block text-textMuted font-semibold mb-1">Type</label>
+                    <select
+                      value={vehicleFormData.type}
+                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, type: e.target.value })}
+                      className="w-full p-3 rounded-xl bg-surface border border-glass text-textMain outline-none min-h-[44px]"
+                    >
+                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">License Plate Number *</label>
+                    <label className="block text-textMuted font-semibold mb-1">License Plate *</label>
                     <input
                       type="text"
                       required
                       value={vehicleFormData.licensePlate}
                       onChange={(e) => setVehicleFormData({ ...vehicleFormData, licensePlate: e.target.value.toUpperCase() })}
-                      placeholder="e.g. MH 12 AB 1234"
-                      className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm font-mono text-textMain focus:outline-none focus:border-primary uppercase"
+                      placeholder="e.g. TN 01 AB 1234"
+                      className="w-full p-3 rounded-xl bg-surface border border-glass font-mono font-bold text-primary outline-none min-h-[44px]"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Vehicle Type</label>
-                    <select
-                      value={vehicleFormData.type}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, type: e.target.value })}
-                      className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain focus:outline-none focus:border-primary"
-                    >
-                      {VEHICLE_TYPES.map(t => <option key={t} value={t} className="bg-surface">{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Make / Brand</label>
+                    <label className="block text-textMuted font-semibold mb-1">Make</label>
                     <input
                       type="text"
                       value={vehicleFormData.make}
                       onChange={(e) => setVehicleFormData({ ...vehicleFormData, make: e.target.value })}
-                      placeholder="e.g. Honda, Hyundai, Mahindra"
-                      className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain focus:outline-none focus:border-primary"
+                      placeholder="Honda"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Model & Year</label>
+                    <label className="block text-textMuted font-semibold mb-1">Model</label>
                     <input
                       type="text"
                       value={vehicleFormData.model}
                       onChange={(e) => setVehicleFormData({ ...vehicleFormData, model: e.target.value })}
-                      placeholder="e.g. City ZX (2022)"
-                      className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain focus:outline-none focus:border-primary"
+                      placeholder="City"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-textMuted font-semibold mb-1">Year</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={vehicleFormData.year}
+                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, year: e.target.value })}
+                      placeholder="2023"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                     />
                   </div>
                 </div>
 
-                {/* Insurance Specs */}
-                <div className="p-4 rounded-xl bg-surface/50 border border-glass space-y-3">
-                  <h4 className="text-xs font-bold text-textMain uppercase tracking-wider">Insurance Details</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-surface/50 rounded-xl border border-glass space-y-3">
+                  <h4 className="font-bold text-textMain flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-green-400" /> Insurance & RC Expiries
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] text-textMuted mb-1">Provider</label>
-                      <input
-                        type="text"
-                        value={vehicleFormData.insuranceProvider}
-                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, insuranceProvider: e.target.value })}
-                        placeholder="e.g. ICICI Lombard"
-                        className="w-full bg-surface border border-glass rounded-lg px-3 py-1.5 text-xs text-textMain"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-textMuted mb-1">Policy Number</label>
-                      <input
-                        type="text"
-                        value={vehicleFormData.insurancePolicyNumber}
-                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, insurancePolicyNumber: e.target.value })}
-                        placeholder="Policy #"
-                        className="w-full bg-surface border border-glass rounded-lg px-3 py-1.5 text-xs text-textMain font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-textMuted mb-1">Insurance Expiry Date</label>
+                      <label className="block text-textMuted mb-1">Insurance Expiry</label>
                       <input
                         type="date"
                         value={vehicleFormData.insuranceExpiry}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, insuranceExpiry: e.target.value })}
-                        className="w-full bg-surface border border-glass rounded-lg px-3 py-1.5 text-xs text-textMain"
-                      />
-                    </div>
-                  </div>
-                  <FileUpload
-                    label="Upload Insurance Policy Document"
-                    currentUrl={vehicleFormData.insuranceDocUrl}
-                    onUploadSuccess={(url) => setVehicleFormData({ ...vehicleFormData, insuranceDocUrl: url })}
-                    onRemove={() => setVehicleFormData({ ...vehicleFormData, insuranceDocUrl: '' })}
-                  />
-                </div>
-
-                {/* PUC & RC Specs */}
-                <div className="p-4 rounded-xl bg-surface/50 border border-glass space-y-3">
-                  <h4 className="text-xs font-bold text-textMain uppercase tracking-wider">RC & PUC Details</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] text-textMuted mb-1">RC Expiry Date</label>
-                      <input
-                        type="date"
-                        value={vehicleFormData.rcExpiry}
-                        onChange={(e) => setVehicleFormData({ ...vehicleFormData, rcExpiry: e.target.value })}
-                        className="w-full bg-surface border border-glass rounded-lg px-3 py-1.5 text-xs text-textMain"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-textMuted mb-1">PUC Expiry Date</label>
+                      <label className="block text-textMuted mb-1">PUC Expiry</label>
                       <input
                         type="date"
                         value={vehicleFormData.pucExpiry}
                         onChange={(e) => setVehicleFormData({ ...vehicleFormData, pucExpiry: e.target.value })}
-                        className="w-full bg-surface border border-glass rounded-lg px-3 py-1.5 text-xs text-textMain"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <FileUpload
-                      label="Upload RC Book"
-                      currentUrl={vehicleFormData.rcDocUrl}
-                      onUploadSuccess={(url) => setVehicleFormData({ ...vehicleFormData, rcDocUrl: url })}
-                      onRemove={() => setVehicleFormData({ ...vehicleFormData, rcDocUrl: '' })}
-                    />
-                    <FileUpload
-                      label="Upload PUC Certificate"
-                      currentUrl={vehicleFormData.pucDocUrl}
-                      onUploadSuccess={(url) => setVehicleFormData({ ...vehicleFormData, pucDocUrl: url })}
-                      onRemove={() => setVehicleFormData({ ...vehicleFormData, pucDocUrl: '' })}
-                    />
-                  </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowVehicleModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-glass">
+                  <button
+                    type="button"
+                    onClick={() => setShowVehicleModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-surface border border-glass text-textMuted hover:text-textMain min-h-[44px]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-primary text-background font-bold shadow-neon-primary-sm min-h-[44px]"
+                  >
                     {editVehicleId ? 'Update Vehicle' : 'Register Vehicle'}
                   </button>
                 </div>
@@ -995,104 +1438,87 @@ export default function VehicleManager() {
         )}
       </AnimatePresence>
 
-      {/* FUEL MODAL */}
+      {/* MODAL: FUEL FILL-UP */}
       <AnimatePresence>
         {showFuelModal && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowFuelModal(false)}>
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 overflow-y-auto" onClick={() => setShowFuelModal(false)}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md glass-panel p-5 my-8"
               onClick={(e) => e.stopPropagation()}
-              className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4 flex items-center gap-2">
-                <Fuel className="text-primary" size={22} /> Log Fuel Fill-up
+              <h2 className="text-base font-bold text-textMain mb-3 flex items-center gap-2">
+                <Fuel size={18} className="text-primary" /> Record Fuel Fill-up
               </h2>
-              <form onSubmit={handleSaveFuel} className="space-y-4">
+              <form onSubmit={handleSaveFuel} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-textMuted font-semibold mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={fuelFormData.date}
+                    onChange={(e) => setFuelFormData({ ...fuelFormData, date: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Date *</label>
+                    <label className="block text-textMuted font-semibold mb-1">Odometer (km) *</label>
                     <input
-                      type="date"
+                      type="number"
+                      inputMode="numeric"
                       required
-                      value={fuelFormData.date}
-                      onChange={(e) => setFuelFormData({ ...fuelFormData, date: e.target.value })}
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
+                      value={fuelFormData.odometer}
+                      onChange={(e) => setFuelFormData({ ...fuelFormData, odometer: e.target.value })}
+                      placeholder="e.g. 15420"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Fuel Type</label>
-                    <select
-                      value={fuelFormData.fuelType}
-                      onChange={(e) => setFuelFormData({ ...fuelFormData, fuelType: e.target.value })}
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
-                    >
-                      {FUEL_TYPES.map(f => <option key={f} value={f} className="bg-surface">{f}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-textMuted mb-1">Current Odometer (km) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={fuelFormData.odometer}
-                    onChange={(e) => setFuelFormData({ ...fuelFormData, odometer: e.target.value })}
-                    placeholder="e.g. 45200"
-                    className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm font-mono text-textMain"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Quantity (Liters) *</label>
+                    <label className="block text-textMuted font-semibold mb-1">Quantity (Liters) *</label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
+                      inputMode="decimal"
                       required
                       value={fuelFormData.liters}
                       onChange={(e) => setFuelFormData({ ...fuelFormData, liters: e.target.value })}
-                      placeholder="e.g. 35.5"
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
+                      placeholder="e.g. 10.5"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-textMuted font-semibold mb-1">Rate (₹/Liter)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
+                      value={fuelFormData.pricePerLiter}
+                      onChange={(e) => setFuelFormData({ ...fuelFormData, pricePerLiter: e.target.value })}
+                      placeholder="102"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Price / Liter (₹)</label>
+                    <label className="block text-textMuted font-semibold mb-1">Total Cost (₹) *</label>
                     <input
                       type="number"
-                      step="0.01"
-                      value={fuelFormData.pricePerLiter}
-                      onChange={(e) => setFuelFormData({ ...fuelFormData, pricePerLiter: e.target.value })}
-                      placeholder="e.g. 104.50"
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
+                      inputMode="decimal"
+                      required
+                      value={fuelFormData.cost || (Number(fuelFormData.liters) * Number(fuelFormData.pricePerLiter) || '')}
+                      onChange={(e) => setFuelFormData({ ...fuelFormData, cost: e.target.value })}
+                      placeholder="Computed auto"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-green-400 font-bold min-h-[44px]"
                     />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-textMuted mb-1">Total Cost (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={fuelFormData.cost}
-                    onChange={(e) => setFuelFormData({ ...fuelFormData, cost: e.target.value })}
-                    placeholder={fuelFormData.liters && fuelFormData.pricePerLiter ? String(Number(fuelFormData.liters) * Number(fuelFormData.pricePerLiter)) : '0.00'}
-                    className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain font-bold"
-                  />
-                </div>
-
-                <FileUpload
-                  label="Attach Fuel Receipt"
-                  currentUrl={fuelFormData.receiptUrl}
-                  onUploadSuccess={(url) => setFuelFormData({ ...fuelFormData, receiptUrl: url })}
-                  onRemove={() => setFuelFormData({ ...fuelFormData, receiptUrl: '' })}
-                />
-
-                <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowFuelModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">Record Fuel</button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-glass">
+                  <button type="button" onClick={() => setShowFuelModal(false)} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-primary text-background font-bold rounded-xl min-h-[44px]">Save Fill-up</button>
                 </div>
               </form>
             </motion.div>
@@ -1100,101 +1526,79 @@ export default function VehicleManager() {
         )}
       </AnimatePresence>
 
-      {/* SERVICE MODAL */}
+      {/* MODAL: SERVICE LOG */}
       <AnimatePresence>
         {showServiceModal && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowServiceModal(false)}>
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 overflow-y-auto" onClick={() => setShowServiceModal(false)}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md glass-panel p-5 my-8"
               onClick={(e) => e.stopPropagation()}
-              className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4 flex items-center gap-2">
-                <Wrench className="text-yellow-400" size={22} /> Log Service / Maintenance
+              <h2 className="text-base font-bold text-textMain mb-3 flex items-center gap-2">
+                <Wrench size={18} className="text-yellow-400" /> Log Maintenance & Repairs
               </h2>
-              <form onSubmit={handleSaveService} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={serviceFormData.date}
-                      onChange={(e) => setServiceFormData({ ...serviceFormData, date: e.target.value })}
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Service Type</label>
-                    <select
-                      value={serviceFormData.serviceType}
-                      onChange={(e) => setServiceFormData({ ...serviceFormData, serviceType: e.target.value })}
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
-                    >
-                      {SERVICE_TYPES.map(s => <option key={s} value={s} className="bg-surface">{s}</option>)}
-                    </select>
-                  </div>
+              <form onSubmit={handleSaveService} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-textMuted font-semibold mb-1">Service Type *</label>
+                  <select
+                    value={serviceFormData.serviceType}
+                    onChange={(e) => setServiceFormData({ ...serviceFormData, serviceType: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                  >
+                    {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Odometer (km)</label>
+                    <label className="block text-textMuted font-semibold mb-1">Odometer (km)</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       value={serviceFormData.odometer}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, odometer: e.target.value })}
-                      placeholder="e.g. 50000"
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain"
+                      placeholder="15000"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-textMuted mb-1">Total Bill (₹) *</label>
+                    <label className="block text-textMuted font-semibold mb-1">Cost (₹) *</label>
                     <input
                       type="number"
-                      step="0.01"
+                      inputMode="decimal"
                       required
                       value={serviceFormData.cost}
                       onChange={(e) => setServiceFormData({ ...serviceFormData, cost: e.target.value })}
-                      placeholder="0.00"
-                      className="w-full bg-surface border border-glass rounded-xl px-3 py-2 text-sm text-textMain font-bold"
+                      placeholder="2500"
+                      className="w-full p-2.5 rounded-xl bg-surface border border-glass text-yellow-400 font-bold min-h-[44px]"
                     />
                   </div>
                 </div>
-
                 <div>
-                  <label className="block text-xs font-medium text-textMuted mb-1">Garage / Authorized Service Center</label>
+                  <label className="block text-textMuted font-semibold mb-1">Garage / Workshop Name</label>
                   <input
                     type="text"
                     value={serviceFormData.garage}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, garage: e.target.value })}
-                    placeholder="e.g. Honda Authorized, Bosch Car Service"
-                    className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain"
+                    placeholder="Authorized Service Center"
+                    className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-medium text-textMuted mb-1">Work Description / Replaced Parts</label>
+                  <label className="block text-textMuted font-semibold mb-1">Notes / Replaced Parts</label>
                   <textarea
                     rows={2}
                     value={serviceFormData.notes}
                     onChange={(e) => setServiceFormData({ ...serviceFormData, notes: e.target.value })}
-                    placeholder="e.g. Replaced synthetic engine oil (0W-20), oil filter, front brake pads..."
-                    className="w-full bg-surface border border-glass rounded-xl px-4 py-2 text-sm text-textMain"
+                    placeholder="Oil filter swapped, chain tightened"
+                    className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
                   />
                 </div>
-
-                <FileUpload
-                  label="Attach Service Invoice / Bill"
-                  currentUrl={serviceFormData.receiptUrl}
-                  onUploadSuccess={(url) => setServiceFormData({ ...serviceFormData, receiptUrl: url })}
-                  onRemove={() => setServiceFormData({ ...serviceFormData, receiptUrl: '' })}
-                />
-
-                <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowServiceModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-yellow-400 text-black px-5 py-2 rounded-xl font-medium text-sm hover:bg-yellow-300 shadow-[0_0_15px_rgba(250,204,21,0.4)]">Save Service Log</button>
+                <div className="flex justify-end gap-2 pt-2 border-t border-glass">
+                  <button type="button" onClick={() => setShowServiceModal(false)} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-yellow-400 text-black font-bold rounded-xl min-h-[44px]">Save Service</button>
                 </div>
               </form>
             </motion.div>
@@ -1204,9 +1608,9 @@ export default function VehicleManager() {
 
       {/* CONFIRM DELETE MODAL */}
       <ConfirmModal
-        isOpen={Boolean(deleteTarget)}
-        title={`Delete ${deleteTarget?.type === 'vehicle' ? 'Vehicle' : deleteTarget?.type === 'fuel' ? 'Fuel Log' : 'Service Log'}`}
-        message="Are you sure you want to permanently delete this record? This action cannot be undone."
+        isOpen={!!deleteTarget}
+        title={`Delete ${deleteTarget?.type === 'vehicle' ? 'Vehicle' : deleteTarget?.type === 'fuel' ? 'Fuel Log' : 'Service Record'}`}
+        message="Are you sure? This action will permanently remove this record from Firestore."
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />

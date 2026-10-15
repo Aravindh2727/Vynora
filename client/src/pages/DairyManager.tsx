@@ -12,6 +12,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 export default function DairyManager() {
   const { user } = useContextEngineStore();
@@ -383,86 +384,82 @@ export default function DairyManager() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Milk className="text-primary" size={32} /> Dairy Management
-          </h1>
-          <p className="text-textMuted">
-            Cattle registry, daily milk yields, feed inventory, veterinary treatments, and breeding cycles.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button 
-            onClick={() => setShowFeedModal(true)} 
-            className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-3 py-2 rounded-xl flex items-center gap-1.5 hover:bg-orange-500/30 transition-colors text-sm font-medium"
-          >
-            <Plus size={16} /> Feed Log
-          </button>
-          <button 
-            onClick={() => { setEditFarmLogId(null); setShowLogModal(true); }} 
-            className="bg-primary/20 text-primary border border-primary/30 px-3 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/30 transition-colors text-sm font-medium"
-          >
-            <FileDigit size={16} /> Log Milk Sale
-          </button>
-          <button 
-            onClick={() => { resetCowForm(); setEditCowId(null); setShowCowModal(true); }} 
-            className="bg-white text-black px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-gray-200 transition-colors text-sm font-bold shadow-neon-primary-sm"
-          >
-            <Plus size={16} /> Register Cattle
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Dairy Management"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Milk className="text-primary" size={24} />}
+        subtitle="Cattle registry, daily milk yields, feed inventory, veterinary treatments, and breeding cycles."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button 
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1 text-xs transition-colors min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => { setEditFarmLogId(null); setShowLogModal(true); }} 
+              className="bg-primary/20 text-primary border border-primary/30 px-3 py-2 rounded-xl flex items-center gap-1 hover:bg-primary/30 transition-colors text-xs font-semibold min-h-[44px]"
+            >
+              <FileDigit size={14} /> Log Milk
+            </button>
+            <button 
+              type="button"
+              onClick={() => { resetCowForm(); setEditCowId(null); setShowCowModal(true); }} 
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 transition-colors text-xs font-bold shadow-neon-primary-sm min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Cattle
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="glass-panel p-5 border-l-4 border-l-primary flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Total Milk Yield</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-textMain">{overallLiters.toFixed(1)} <span className="text-xs text-textMuted">L</span></h2>
-            <Milk className="text-primary/70" size={24} />
+      {/* KPI Stats Cards (Responsive grid) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="glass-panel p-3.5 sm:p-4 border-l-4 border-l-primary flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Milk Yield</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-xl font-bold text-textMain">{overallLiters.toFixed(1)} <span className="text-[10px] text-textMuted">L</span></h2>
+            <Milk className="text-primary/70" size={18} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-green-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Milk Revenue</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-green-400">₹{overallRevenue.toLocaleString()}</h2>
-            <IndianRupee className="text-green-500/70" size={24} />
+        <div className="glass-panel p-3.5 sm:p-4 border-l-4 border-l-green-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Milk Revenue</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-xl font-bold text-green-400">₹{overallRevenue.toLocaleString()}</h2>
+            <IndianRupee className="text-green-500/70" size={18} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-orange-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Feed Expenses</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-orange-400">₹{overallFeedExpenses.toLocaleString()}</h2>
-            <Plus className="text-orange-500/70" size={24} />
+        <div className="glass-panel p-3.5 sm:p-4 border-l-4 border-l-orange-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Feed Expenses</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-xl font-bold text-orange-400">₹{overallFeedExpenses.toLocaleString()}</h2>
+            <Plus className="text-orange-500/70" size={18} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-red-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Veterinary Costs</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-red-400">₹{overallVetExpenses.toLocaleString()}</h2>
-            <HeartPulse className="text-red-500/70" size={24} />
+        <div className="glass-panel p-3.5 sm:p-4 border-l-4 border-l-red-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Vet Costs</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-xl font-bold text-red-400">₹{overallVetExpenses.toLocaleString()}</h2>
+            <HeartPulse className="text-red-500/70" size={18} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-blue-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Dairy Net Profit</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className={`text-2xl font-bold ${overallNetProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+        <div className="glass-panel p-3.5 sm:p-4 border-l-4 border-l-blue-500 flex flex-col justify-between col-span-2 sm:col-span-1">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Net Profit</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className={`text-base sm:text-xl font-bold ${overallNetProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
               ₹{overallNetProfit.toLocaleString()}
             </h2>
-            <Activity className="text-blue-500/70" size={24} />
+            <Activity className="text-blue-500/70" size={18} />
           </div>
         </div>
       </div>

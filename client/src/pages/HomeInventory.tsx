@@ -13,6 +13,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { SearchFilterBar } from '../components/common/SearchFilterBar';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const INVENTORY_CATEGORIES = [
   'Electronics & Gadgets', 'Home Appliances', 'Furniture', 'Tools & Hardware',
@@ -152,47 +153,50 @@ export default function HomeInventory() {
   }).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Package className="text-primary" size={28} /> Home Inventory
-          </h1>
-          <p className="text-textMuted">Household asset tracking, warranty alerts, serial numbers, and valuation.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => exportToCSV(items, 'Vynora_Home_Inventory')}
-            className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button
-            onClick={() => { setEditId(null); resetForm(); setShowModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 font-medium text-sm shadow-neon-primary-sm"
-          >
-            <Plus size={18} /> Add Asset
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Home Inventory"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Package className="text-orange-400" size={24} />}
+        subtitle="Household asset tracking, warranty alerts, serial numbers, and valuation."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => exportToCSV(items, 'Vynora_Home_Inventory')}
+              className="px-3 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-xs font-medium flex items-center gap-1.5 min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditId(null); resetForm(); setShowModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 font-bold text-xs shadow-neon-primary-sm min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Asset
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="glass-panel p-5 border-t-4 border-t-primary">
-          <span className="text-xs text-textMuted font-medium">Total Assets Value</span>
-          <div className="text-2xl font-bold text-textMain mt-1">₹{totalAssetValue.toLocaleString('en-IN')}</div>
-          <p className="text-[11px] text-textMuted mt-1">Across all registered assets</p>
+      {/* KPI Row (Responsive grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="glass-panel p-4 border-l-4 border-l-primary flex flex-col justify-between">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Total Assets Value</span>
+          <div className="text-xl sm:text-2xl font-bold text-textMain mt-1">₹{totalAssetValue.toLocaleString('en-IN')}</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Across all registered assets</p>
         </div>
-        <div className="glass-panel p-5 border-t-4 border-t-green-400">
-          <span className="text-xs text-textMuted font-medium">Active Warranties</span>
-          <div className="text-2xl font-bold text-green-400 mt-1">{activeWarranties} Covered</div>
-          <p className="text-[11px] text-textMuted mt-1">Under manufacturer warranty</p>
+        <div className="glass-panel p-4 border-l-4 border-l-green-400 flex flex-col justify-between">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Active Warranties</span>
+          <div className="text-xl sm:text-2xl font-bold text-green-400 mt-1">{activeWarranties} Covered</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Under manufacturer warranty</p>
         </div>
-        <div className="glass-panel p-5 border-t-4 border-t-purple-400">
-          <span className="text-xs text-textMuted font-medium">Total Items</span>
-          <div className="text-2xl font-bold text-purple-400 mt-1">{items.length} Items</div>
-          <p className="text-[11px] text-textMuted mt-1">Cataloged in inventory</p>
+        <div className="glass-panel p-4 border-l-4 border-l-purple-400 flex flex-col justify-between">
+          <span className="text-[10px] sm:text-xs text-textMuted font-medium uppercase">Total Items</span>
+          <div className="text-xl sm:text-2xl font-bold text-purple-400 mt-1">{items.length} Items</div>
+          <p className="text-[10px] text-textMuted mt-0.5">Cataloged in inventory</p>
         </div>
       </div>
 

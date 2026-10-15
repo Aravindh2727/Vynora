@@ -21,6 +21,7 @@ import {
 } from '../services/firestoreService';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const PIE_COLORS = ['#00f2fe', '#4facfe', '#667eea', '#764ba2', '#ff0844', '#ffb199', '#f6d365', '#4ade80', '#fbbf24', '#a78bfa'];
 
@@ -207,47 +208,47 @@ export default function GlobalReports() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <PieChartIcon className="text-primary" size={32} /> Global Analytics & Reports
-          </h1>
-          <p className="text-textMuted">
-            Comprehensive multi-domain intelligence across finances, agriculture, livestock, liabilities, and goals.
-          </p>
-        </div>
+      <MobilePageHeader
+        title="Global Analytics & Reports"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        subtitle="Comprehensive multi-domain intelligence across finances, agriculture, livestock, liabilities, and goals."
+        badges={[
+          { label: `Range: ${dateRange.toUpperCase()}`, variant: 'info' },
+          { label: `${vehicles.length} Vehicles`, variant: 'default' },
+          { label: `${cows.length} Herd`, variant: 'default' }
+        ]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex bg-surface border border-glass rounded-xl p-0.5 text-xs font-semibold overflow-x-auto max-w-full">
+              {[
+                { id: '7d', label: '7D' },
+                { id: '30d', label: '30D' },
+                { id: '90d', label: '90D' },
+                { id: 'year', label: '1Y' },
+                { id: 'all', label: 'All' }
+              ].map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => setDateRange(r.id as any)}
+                  className={`min-h-[38px] px-2.5 py-1 rounded-lg transition-colors touch-target ${
+                    dateRange === r.id ? 'bg-primary text-background font-bold' : 'text-textMuted hover:text-textMain'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Date range filter buttons */}
-          <div className="flex bg-surface border border-glass rounded-xl p-0.5 text-xs font-semibold">
-            {[
-              { id: '7d', label: '7 Days' },
-              { id: '30d', label: '30 Days' },
-              { id: '90d', label: '90 Days' },
-              { id: 'year', label: '1 Year' },
-              { id: 'all', label: 'All Time' }
-            ].map(r => (
-              <button
-                key={r.id}
-                onClick={() => setDateRange(r.id as any)}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  dateRange === r.id ? 'bg-primary text-background' : 'text-textMuted hover:text-textMain'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
+            <button
+              onClick={handleExportConsolidatedCSV}
+              className="min-h-[44px] bg-primary text-background px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-neon-primary-sm hover:opacity-95 transition-opacity touch-target"
+            >
+              <Download size={15} /> <span>CSV</span>
+            </button>
           </div>
-
-          <button
-            onClick={handleExportConsolidatedCSV}
-            className="bg-primary text-background px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-neon-primary-sm hover:opacity-95 transition-opacity"
-          >
-            <Download size={14} /> Export Report CSV
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

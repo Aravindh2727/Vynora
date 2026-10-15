@@ -12,6 +12,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const LOAN_TYPES = ['Home Loan', 'Vehicle Loan', 'Personal Loan', 'Education Loan', 'Gold Loan', 'Agriculture Loan', 'Business Loan'];
 
@@ -226,56 +227,57 @@ export default function LoanManager() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Landmark className="text-primary" size={32} /> Loan Management
-          </h1>
-          <p className="text-textMuted">
-            Principal balances, banking EMI schedules, amortization breakdowns, and ledger sync.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export Portfolio
-          </button>
-          <button
-            onClick={() => { resetForm(); setEditId(null); setShowAddModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Plus size={16} /> Add Loan Account
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Loan Management"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Landmark className="text-primary" size={24} />}
+        subtitle="Principal balances, banking EMI schedules, amortization breakdowns, and ledger sync."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs transition-colors min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { resetForm(); setEditId(null); setShowAddModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Loan
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-panel p-5 border-l-4 border-l-primary flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Total Borrowed Principal</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-textMain">₹{totalPrincipalBorrowed.toLocaleString()}</h2>
-            <Landmark className="text-primary/70" size={24} />
+      {/* KPI Cards (Responsive grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="glass-panel p-4 border-l-4 border-l-primary flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Total Principal</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-textMain">₹{totalPrincipalBorrowed.toLocaleString()}</h2>
+            <Landmark className="text-primary/70" size={20} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-red-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Monthly EMI Commitments</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-red-400">₹{totalMonthlyCommitment.toLocaleString()} / mo</h2>
-            <Banknote className="text-red-500/70" size={24} />
+        <div className="glass-panel p-4 border-l-4 border-l-red-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Monthly EMI Commitments</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-red-400">₹{totalMonthlyCommitment.toLocaleString()} / mo</h2>
+            <Banknote className="text-red-500/70" size={20} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-green-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Active Loan Accounts</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-green-400">{loans.length}</h2>
-            <CheckCircle2 className="text-green-500/70" size={24} />
+        <div className="glass-panel p-4 border-l-4 border-l-green-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Active Loan Accounts</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-green-400">{loans.length} Accounts</h2>
+            <CheckCircle2 className="text-green-500/70" size={20} />
           </div>
         </div>
       </div>

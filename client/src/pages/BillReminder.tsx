@@ -13,6 +13,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const BILL_CATEGORIES = [
   { id: 'Electricity', name: 'Electricity', icon: Zap, color: 'text-amber-400' },
@@ -211,66 +212,67 @@ export default function BillReminder() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Receipt className="text-primary" size={32} /> Bill Reminder
-          </h1>
-          <p className="text-textMuted">
-            Automated recurring reminders, due-date alerts, Cloudinary receipts, and instant Finance ledger sync.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button
-            onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Plus size={16} /> Add New Bill
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Bill Reminder"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Receipt className="text-amber-400" size={24} />}
+        subtitle="Automated recurring reminders, due-date alerts, Cloudinary receipts, and instant Finance ledger sync."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs transition-colors min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Bill
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-panel p-5 border-l-4 border-l-primary flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Total Bill Commitments</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-textMain">₹{totalBillsAmount.toLocaleString()}</h2>
-            <span className="text-xs text-textMuted">{bills.length} bills</span>
+      {/* KPI Cards (Responsive grid) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="glass-panel p-3.5 sm:p-5 border-l-4 border-l-primary flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Total Commitments</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-2xl font-bold text-textMain">₹{totalBillsAmount.toLocaleString()}</h2>
+            <span className="text-[10px] text-textMuted">{bills.length} bills</span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-amber-400 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Pending Due</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-amber-400">₹{pendingAmount.toLocaleString()}</h2>
-            <span className="text-xs text-amber-400/80">{pendingBills.length} unpaid</span>
+        <div className="glass-panel p-3.5 sm:p-5 border-l-4 border-l-amber-400 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Pending Due</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-2xl font-bold text-amber-400">₹{pendingAmount.toLocaleString()}</h2>
+            <span className="text-[10px] text-amber-400/80">{pendingBills.length} unpaid</span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-red-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Overdue Urgencies</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-red-400">₹{overdueAmount.toLocaleString()}</h2>
-            <span className="text-xs text-red-400/80 flex items-center gap-1">
-              <AlertCircle size={12} /> {overdueBills.length} overdue
+        <div className="glass-panel p-3.5 sm:p-5 border-l-4 border-l-red-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Overdue Urgencies</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-2xl font-bold text-red-400">₹{overdueAmount.toLocaleString()}</h2>
+            <span className="text-[10px] text-red-400/80 flex items-center gap-0.5">
+              <AlertCircle size={10} /> {overdueBills.length}
             </span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-green-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Settled / Paid</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-green-400">₹{paidAmount.toLocaleString()}</h2>
-            <span className="text-xs text-green-400/80">{paidBills.length} paid</span>
+        <div className="glass-panel p-3.5 sm:p-5 border-l-4 border-l-green-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Settled / Paid</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-base sm:text-2xl font-bold text-green-400">₹{paidAmount.toLocaleString()}</h2>
+            <span className="text-[10px] text-green-400/80">{paidBills.length} paid</span>
           </div>
         </div>
       </div>

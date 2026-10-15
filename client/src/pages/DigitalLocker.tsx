@@ -12,6 +12,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const LOCKER_CATEGORIES = [
   { id: 'Identity', name: 'Identity & ID Cards', icon: Shield, color: 'text-primary' },
@@ -199,61 +200,61 @@ export default function DigitalLocker() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Lock className="text-primary" size={32} /> Digital Locker
-          </h1>
-          <p className="text-textMuted flex items-center gap-2">
-            <ShieldCheck size={16} className="text-green-400" />
-            End-to-end encrypted storage for identity, property, certificates, vehicle, and insurance records.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export Catalog
-          </button>
-          <button
-            onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Upload size={16} /> Upload Document
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Digital Locker"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Lock className="text-primary" size={24} />}
+        subtitle="Encrypted cloud storage for Aadhaar, property deeds, vehicle RC, policies & certificates."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs transition-colors min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs min-h-[44px] active:scale-95"
+            >
+              <Upload size={16} /> Upload Doc
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-panel p-5 border-l-4 border-l-primary flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Total Documents</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-textMain">{documents.length}</h2>
-            <Folder className="text-primary/70" size={24} />
+      {/* KPI Cards (Responsive grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="glass-panel p-4 border-l-4 border-l-primary flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Total Documents</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-textMain">{documents.length} Files</h2>
+            <Folder className="text-primary/70" size={20} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-amber-400 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Renewal Alerts (≤ 45 Days)</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className={`text-2xl font-bold ${expiringDocs.length > 0 ? 'text-amber-400' : 'text-textMain'}`}>
+        <div className="glass-panel p-4 border-l-4 border-l-amber-400 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Renewal Alerts (≤ 45d)</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className={`text-xl sm:text-2xl font-bold ${expiringDocs.length > 0 ? 'text-amber-400' : 'text-textMain'}`}>
               {expiringDocs.length}
             </h2>
-            <AlertCircle className="text-amber-400/70" size={24} />
+            <AlertCircle className="text-amber-400/70" size={20} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-green-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Categories In Use</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-green-400">
-              {new Set(documents.map(d => d.category)).size}
+        <div className="glass-panel p-4 border-l-4 border-l-green-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Categories In Use</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-green-400">
+              {new Set(documents.map(d => d.category)).size} Folders
             </h2>
-            <ShieldCheck className="text-green-500/70" size={24} />
+            <ShieldCheck className="text-green-500/70" size={20} />
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const TASK_CATEGORIES = ['Work', 'Personal', 'Finance', 'Health', 'Farm', 'Study', 'Home'];
 const PRIORITIES = [
@@ -341,50 +342,53 @@ export default function TasksPlanner() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <CheckSquare className="text-primary" size={32} /> Tasks & Planner
-          </h1>
-          <p className="text-textMuted">
-            Kanban workflow, subtask checklists, priority tiers, and scheduled productivity reminders.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="flex bg-surface border border-glass rounded-xl p-0.5">
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Tasks & Planner"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<CheckSquare className="text-emerald-400" size={24} />}
+        subtitle="Kanban workflow, subtask checklists, priority tiers, and scheduled productivity reminders."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex bg-surface border border-glass rounded-xl p-0.5 min-h-[44px] items-center">
+              <button
+                type="button"
+                onClick={() => setViewMode('kanban')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors min-h-[36px] ${
+                  viewMode === 'kanban' ? 'bg-primary text-background' : 'text-textMuted hover:text-textMain'
+                }`}
+              >
+                <Kanban size={13} /> <span className="hidden sm:inline">Kanban</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors min-h-[36px] ${
+                  viewMode === 'list' ? 'bg-primary text-background' : 'text-textMuted hover:text-textMain'
+                }`}
+              >
+                <List size={13} /> <span className="hidden sm:inline">List</span>
+              </button>
+            </div>
             <button
-              onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
-                viewMode === 'kanban' ? 'bg-primary text-background' : 'text-textMuted hover:text-textMain'
-              }`}
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1 text-xs transition-colors min-h-[44px]"
             >
-              <Kanban size={14} /> Kanban
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
             </button>
             <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
-                viewMode === 'list' ? 'bg-primary text-background' : 'text-textMuted hover:text-textMain'
-              }`}
+              type="button"
+              onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs min-h-[44px] active:scale-95"
             >
-              <List size={14} /> List
+              <Plus size={16} /> New Task
             </button>
           </div>
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3 py-1.5 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs transition-colors"
-          >
-            <Download size={14} /> Export CSV
-          </button>
-          <button
-            onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Plus size={16} /> New Task
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

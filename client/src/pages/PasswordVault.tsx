@@ -18,6 +18,8 @@ import { SearchFilterBar } from '../components/common/SearchFilterBar';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
+
 const VAULT_CATEGORIES = ['All', 'Personal', 'Financial', 'Work', 'Social Media', 'Shopping', 'Other'];
 
 export default function PasswordVault() {
@@ -209,35 +211,34 @@ export default function PasswordVault() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <KeyRound className="text-red-400" size={28} /> Password Vault
-          </h1>
-          <p className="text-textMuted flex items-center gap-2">
-            <ShieldAlert size={16} className="text-primary" />
-            Client-Side AES-GCM (256-bit) Encrypted Storage with PBKDF2 Key Derivation
-          </p>
-        </div>
-
-        {isUnlocked && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleLockVault}
-              className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
-            >
-              <Lock size={16} /> Lock Vault
-            </button>
-            <button
-              onClick={() => { setEditId(null); setFormData({ platform: '', username: '', password: '', url: '', category: 'Personal', notes: '' }); setShowModal(true); }}
-              className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 font-medium text-sm shadow-neon-primary-sm"
-            >
-              <Plus size={18} /> New Credential
-            </button>
-          </div>
-        )}
-      </div>
+      <MobilePageHeader
+        title="Password Vault"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        subtitle="Client-Side AES-GCM (256-bit) Encrypted Storage with PBKDF2 Key Derivation"
+        badges={[
+          { label: isUnlocked ? 'Vault Unlocked' : 'Locked', variant: isUnlocked ? 'success' : 'warning' },
+          ...(isUnlocked ? [{ label: `${filteredPasswords.length} items`, variant: 'info' as const }] : [])
+        ]}
+        actions={
+          isUnlocked ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLockVault}
+                className="min-h-[44px] px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2 touch-target"
+              >
+                <Lock size={16} /> <span className="hidden sm:inline">Lock Vault</span>
+              </button>
+              <button
+                onClick={() => { setEditId(null); setFormData({ platform: '', username: '', password: '', url: '', category: 'Personal', notes: '' }); setShowModal(true); }}
+                className="min-h-[44px] bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 font-bold text-sm shadow-neon-primary-sm touch-target"
+              >
+                <Plus size={18} /> <span>New</span>
+              </button>
+            </div>
+          ) : undefined
+        }
+      />
 
       {/* LOCKED VIEW: Master Password Challenge */}
       {!isUnlocked ? (
@@ -373,22 +374,24 @@ export default function PasswordVault() {
                             {isRevealed ? plainPassword : '••••••••••••'}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => toggleReveal(p._id)}
-                            className="p-1.5 rounded hover:bg-surface text-textMuted hover:text-textMain transition-colors"
+                            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface text-textMuted hover:text-textMain transition-colors touch-target"
                             title={isRevealed ? 'Hide' : 'Reveal'}
+                            aria-label={isRevealed ? 'Hide password' : 'Reveal password'}
                           >
-                            {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {isRevealed ? <EyeOff size={18} /> : <Eye size={18} />}
                           </button>
                           <button
                             onClick={() => handleCopyPassword(p._id, plainPassword)}
-                            className={`p-1.5 rounded transition-colors ${
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors touch-target ${
                               copiedId === p._id ? 'text-green-400 bg-green-500/20' : 'text-textMuted hover:text-primary hover:bg-surface'
                             }`}
                             title="Copy to clipboard (30s auto-clear)"
+                            aria-label="Copy password to clipboard"
                           >
-                            {copiedId === p._id ? <Check size={16} /> : <Copy size={16} />}
+                            {copiedId === p._id ? <Check size={18} /> : <Copy size={18} />}
                           </button>
                         </div>
                       </div>

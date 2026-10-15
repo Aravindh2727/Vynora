@@ -12,6 +12,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 export default function MedicineReminder() {
   const { user } = useContextEngineStore();
@@ -243,57 +244,58 @@ export default function MedicineReminder() {
         </div>
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Pill className="text-primary" size={32} /> Medicine Reminder
-          </h1>
-          <p className="text-textMuted">
-            Active courses, dosage timing, prescription records, pill inventory, and confirmed dose tracking.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button
-            onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Plus size={16} /> Add Medication
-          </button>
-        </div>
-      </div>
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Medicine Reminder"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<Pill className="text-red-400" size={24} />}
+        subtitle="Active courses, dosage timing, prescription records, pill inventory, and confirmed dose tracking."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="bg-surface border border-glass px-3 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs transition-colors min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
+              className="bg-primary text-background px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Med
+            </button>
+          </div>
+        }
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-panel p-5 border-l-4 border-l-primary flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Active Courses</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-textMain">{activeMedicines.length}</h2>
-            <Pill className="text-primary/70" size={24} />
+      {/* KPI Cards (Responsive grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="glass-panel p-4 border-l-4 border-l-primary flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Active Courses</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-textMain">{activeMedicines.length} Courses</h2>
+            <Pill className="text-primary/70" size={20} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-amber-400 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Refill Alerts (Stock ≤ 5)</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className={`text-2xl font-bold ${lowStockMedicines.length > 0 ? 'text-amber-400' : 'text-textMain'}`}>
-              {lowStockMedicines.length}
+        <div className="glass-panel p-4 border-l-4 border-l-amber-400 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Refill Alerts (Stock ≤ 5)</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className={`text-xl sm:text-2xl font-bold ${lowStockMedicines.length > 0 ? 'text-amber-400' : 'text-textMain'}`}>
+              {lowStockMedicines.length} Alert{lowStockMedicines.length === 1 ? '' : 's'}
             </h2>
-            <RefreshCw className="text-amber-400/70" size={24} />
+            <RefreshCw className="text-amber-400/70" size={20} />
           </div>
         </div>
 
-        <div className="glass-panel p-5 border-l-4 border-l-green-500 flex flex-col justify-between">
-          <p className="text-xs text-textMuted uppercase font-semibold">Completed Courses</p>
-          <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-2xl font-bold text-green-400">{completedMedicines.length}</h2>
-            <CheckCircle2 className="text-green-500/70" size={24} />
+        <div className="glass-panel p-4 border-l-4 border-l-green-500 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-xs text-textMuted uppercase font-semibold">Completed Courses</p>
+          <div className="mt-1 flex items-baseline justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-green-400">{completedMedicines.length}</h2>
+            <CheckCircle2 className="text-green-500/70" size={20} />
           </div>
         </div>
       </div>

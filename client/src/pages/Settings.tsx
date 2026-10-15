@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Shield, Bell, Palette, Database, Key, 
   Smartphone, Monitor, Mail, Lock, Trash2, Download,
-  Save, Camera, CheckCircle2
+  Save, Camera, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { subscribeToPush } from '../utils/push';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 type TabId = 'profile' | 'security' | 'notifications' | 'appearance' | 'data';
 
@@ -60,37 +61,41 @@ export default function Settings() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto h-full flex flex-col">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
-          Settings & Preferences
-        </h1>
-        <p className="text-textMuted mt-2">Manage your account, preferences, and security.</p>
-      </div>
+    <div className="max-w-6xl mx-auto h-full flex flex-col space-y-6">
+      <MobilePageHeader
+        title="Settings & Preferences"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        subtitle="Manage your profile, theme mode, security, and notification channels."
+        badges={[
+          { label: `Theme: ${theme.toUpperCase()}`, variant: 'info' }
+        ]}
+      />
 
-      <div className="flex flex-col md:flex-row gap-8 flex-1 min-h-0">
-        {/* Sidebar Navigation */}
-        <div className="w-full md:w-64 shrink-0 overflow-x-auto md:overflow-visible">
-          <nav className="flex md:flex-col gap-2 pb-4 md:pb-0">
+      <div className="flex flex-col md:flex-row gap-5 flex-1 min-h-0">
+        {/* Navigation Tabs: Sleek horizontal segmented pills on mobile, vertical on desktop */}
+        <div className="w-full md:w-56 shrink-0">
+          <nav className="flex md:flex-col gap-1.5 p-1 bg-surface/80 border border-glass rounded-2xl overflow-x-auto scrollbar-none w-full shadow-sm">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all whitespace-nowrap ${
+                className={`flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl transition-all whitespace-nowrap text-xs sm:text-sm shrink-0 min-h-[40px] touch-target active:scale-95 ${
                   activeTab === tab.id
-                    ? 'bg-primary/10 text-primary border border-primary/30 shadow-[0_0_15px_rgba(0,242,254,0.15)]'
-                    : 'text-textMuted hover:text-textMain hover:bg-surface border border-transparent'
+                    ? 'bg-primary text-background font-bold shadow-neon-primary-sm scale-[1.02]'
+                    : 'text-textMuted hover:text-textMain hover:bg-surface/80'
                 }`}
               >
-                {tab.icon}
-                <span className="font-medium">{tab.label}</span>
+                <span className="shrink-0">{tab.icon}</span>
+                <span>{tab.label}</span>
               </button>
             ))}
           </nav>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 glass-panel p-6 md:p-8 overflow-y-auto custom-scrollbar relative">
+        <div className="flex-1 glass-panel p-4 sm:p-6 md:p-8 overflow-y-auto custom-scrollbar relative rounded-2xl">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -308,6 +313,24 @@ export default function Settings() {
                     </h2>
                     
                     <div className="space-y-4">
+                      {/* Database Connection / Offline Fallback Warning Notice */}
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200 text-xs">
+                        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3">
+                          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 shrink-0">
+                            <AlertTriangle size={18} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-amber-950 dark:text-amber-100 text-xs sm:text-sm">Database Connection Status</p>
+                            <p className="text-amber-900/80 dark:text-amber-300/80 text-[11px] sm:text-xs mt-0.5 leading-relaxed">
+                              Database offline: Displaying localized snapshot data until cloud reconnects. Local changes are preserved safely.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/40 rounded-md font-mono text-[9px] sm:text-[10px] font-bold shrink-0">
+                          Offline Fallback
+                        </span>
+                      </div>
+
                       <div className="p-5 border border-glass rounded-xl bg-surface/30">
                         <h3 className="font-medium mb-2 text-textMain">Export Your Data</h3>
                         <p className="text-sm text-textMuted mb-4">Download a complete copy of your Vynora data including finance, health, and tasks in JSON format.</p>

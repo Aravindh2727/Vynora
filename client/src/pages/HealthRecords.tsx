@@ -13,6 +13,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const RECORD_TYPES = [
   'Blood Pressure', 'Blood Sugar', 'Weight & Height', 'Heart Rate / SpO2', 'Body Temperature', 'General Notes'
@@ -216,35 +217,38 @@ export default function HealthRecords() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <HeartPulse className="text-red-400" size={28} /> Health Records
-          </h1>
-          <p className="text-textMuted">Monitor vital signs, doctor appointments, BMI, and medical test reports.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => exportToCSV([...records, ...visits], 'Vynora_Health_Report')}
-            className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
-          >
-            <Download size={16} /> Export Health CSV
-          </button>
-          <button
-            onClick={() => setShowVisitModal(true)}
-            className="px-3.5 py-2 rounded-xl border border-blue-400/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-sm font-medium flex items-center gap-2"
-          >
-            <Stethoscope size={16} /> Log Medical Visit
-          </button>
-          <button
-            onClick={() => { setEditVitalId(null); resetVitalForm(); setShowVitalsModal(true); }}
-            className="bg-red-500 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-600 font-medium text-sm shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-          >
-            <Plus size={18} /> Record Vital
-          </button>
-        </div>
-      </div>
+      <MobilePageHeader
+        title="Health Records"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        subtitle="Monitor vital signs, doctor appointments, BMI, and medical test reports."
+        badges={[
+          { label: `${records.length} Vitals`, variant: 'info' },
+          { label: `${visits.length} Visits`, variant: 'default' }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportToCSV([...records, ...visits], 'Vynora_Health_Report')}
+              className="min-h-[44px] px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-xs sm:text-sm font-medium flex items-center gap-1.5 touch-target"
+            >
+              <Download size={15} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              onClick={() => setShowVisitModal(true)}
+              className="min-h-[44px] px-3.5 py-2 rounded-xl border border-blue-400/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs sm:text-sm font-medium flex items-center gap-1.5 touch-target"
+            >
+              <Stethoscope size={15} /> <span className="hidden sm:inline">Log</span> Visit
+            </button>
+            <button
+              onClick={() => { setEditVitalId(null); resetVitalForm(); setShowVitalsModal(true); }}
+              className="min-h-[44px] bg-red-500 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-600 font-bold text-xs sm:text-sm shadow-[0_0_15px_rgba(239,68,68,0.4)] touch-target"
+            >
+              <Plus size={16} /> <span>Record Vital</span>
+            </button>
+          </div>
+        }
+      />
 
       {/* Medical Disclaimer Banner */}
       <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-3 text-xs text-amber-300">

@@ -13,6 +13,7 @@ import { FileUpload } from '../components/common/FileUpload';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { exportToCSV } from '../utils/csvExport';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const GOAL_CATEGORIES = [
   { id: 'Financial', label: 'Financial & Savings', icon: IndianRupee, color: 'text-green-400' },
@@ -260,31 +261,32 @@ export default function GoalTracker() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <Target className="text-primary" size={32} /> Goal Tracker
-          </h1>
-          <p className="text-textMuted">
-            Financial savings targets, career milestones, health achievements, and agriculture objectives.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <Download size={16} /> Export Goals
-          </button>
-          <button
-            onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
-            className="bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-sm"
-          >
-            <Plus size={16} /> Set New Goal
-          </button>
-        </div>
-      </div>
+      <MobilePageHeader
+        title="Goal Tracker"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        subtitle="Financial savings targets, career milestones, health achievements, and agriculture objectives."
+        badges={[
+          { label: `${activeGoals.length} In Progress`, variant: 'info' },
+          { label: `${completedGoals.length} Achieved`, variant: 'success' }
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="min-h-[44px] bg-surface border border-glass px-3.5 py-2 rounded-xl text-textMuted hover:text-textMain flex items-center gap-1.5 text-xs sm:text-sm transition-colors touch-target"
+            >
+              <Download size={15} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              onClick={() => { resetForm(); setEditId(null); setShowModal(true); }}
+              className="min-h-[44px] bg-primary text-background px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-neon-primary-sm font-bold text-xs sm:text-sm touch-target"
+            >
+              <Plus size={16} /> <span>Set Goal</span>
+            </button>
+          </div>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

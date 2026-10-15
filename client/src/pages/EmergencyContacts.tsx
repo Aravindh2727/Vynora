@@ -11,6 +11,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { SearchFilterBar } from '../components/common/SearchFilterBar';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { MobilePageHeader } from '../components/common/MobilePageHeader';
 
 const CONTACT_CATEGORIES = [
   'Family & Kin', 'Doctor & Clinic', 'Hospital & Ambulance',
@@ -139,32 +140,33 @@ export default function EmergencyContacts() {
     });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-wider mb-1 flex items-center gap-3">
-            <HeartPulse className="text-red-400" size={28} /> Emergency Center
-          </h1>
-          <p className="text-textMuted flex items-center gap-2">
-            Priority directory for critical medical contacts, ambulance, police, and kin.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => exportToCSV(contacts, 'Vynora_Emergency_Contacts')}
-            className="px-3.5 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-sm font-medium flex items-center gap-2"
-          >
-            <Download size={16} /> Export Contacts
-          </button>
-          <button
-            onClick={() => { setEditId(null); resetForm(); setShowModal(true); }}
-            className="bg-red-500 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-red-600 font-medium text-sm shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-          >
-            <Plus size={18} /> Add Contact
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      {/* Mobile Page Header with single-level back to Dashboard */}
+      <MobilePageHeader
+        title="Emergency Center"
+        parentLabel="Dashboard"
+        fallbackPath="/"
+        icon={<AlertTriangle className="text-red-500" size={24} />}
+        subtitle="Priority directory for critical medical contacts, ambulance, police, and kin."
+        actions={
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => exportToCSV(contacts, 'Vynora_Emergency_Contacts')}
+              className="px-3 py-2 rounded-xl border border-glass bg-surface hover:bg-surfaceLight text-textMain text-xs font-medium flex items-center gap-1.5 min-h-[44px]"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Export</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEditId(null); resetForm(); setShowModal(true); }}
+              className="bg-red-500 text-white px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:bg-red-600 font-bold text-xs shadow-[0_0_15px_rgba(239,68,68,0.5)] min-h-[44px] active:scale-95"
+            >
+              <Plus size={16} /> Add Contact
+            </button>
+          </div>
+        }
+      />
 
       {/* Safety Notice Banner */}
       <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3.5 flex items-start gap-3 text-xs text-red-300">

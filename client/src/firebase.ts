@@ -5,14 +5,13 @@ import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCoXoHqgBQnrCpIFNWlXITd0PZhHkDJ2DM",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "lifehub-ai-94271.firebaseapp.com",
-  databaseURL: "https://lifehub-ai-94271-default-rtdb.firebaseio.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "lifehub-ai-94271",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "lifehub-ai-94271.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "946678647084",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:946678647084:web:9b9d69abfdd1cb40af4489",
-  measurementId: "G-KWHN7TRP41"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCHi40Lux-hEfPV2vdhQNAgyyCjJv7ppxU",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "vynora-41dde.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "vynora-41dde",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "vynora-41dde.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "301735951420",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:301735951420:web:62c1ceb73966e80253d739",
+  measurementId: "G-TW4SN6WKKT"
 };
 
 // Initialize Firebase

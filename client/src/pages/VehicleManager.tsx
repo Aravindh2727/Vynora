@@ -82,6 +82,7 @@ export default function VehicleManager() {
 
   // Fuel Modal
   const [showFuelModal, setShowFuelModal] = useState(false);
+  const [editingFuelLogId, setEditingFuelLogId] = useState<string | null>(null);
   const [fuelFormData, setFuelFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     fuelType: 'Petrol',
@@ -96,6 +97,7 @@ export default function VehicleManager() {
 
   // Service Modal
   const [showServiceModal, setShowServiceModal] = useState(false);
+  const [editingServiceLogId, setEditingServiceLogId] = useState<string | null>(null);
   const [serviceFormData, setServiceFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     serviceType: 'General Service',
@@ -105,6 +107,11 @@ export default function VehicleManager() {
     notes: '',
     receiptUrl: ''
   });
+
+  // Subsection Quick Edit Modal
+  const [subEditType, setSubEditType] = useState<string | null>(null);
+  const [subEditData, setSubEditData] = useState<any>({});
+  const [subEditSaving, setSubEditSaving] = useState(false);
 
   // Delete Confirm
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'vehicle' | 'fuel' | 'service' } | null>(null);
@@ -332,17 +339,30 @@ export default function VehicleManager() {
     const vId = selectedVehicle._id || selectedVehicle.id;
 
     try {
-      await VehicleService.addFuelLog(vId, {
-        ...fuelFormData,
-        vehicleName: selectedVehicle.name,
-        odometer: odo,
-        liters: ltr,
-        pricePerLiter: price,
-        cost: computedCost,
-        mileage
-      }, activeUid);
+      if (editingFuelLogId) {
+        await VehicleService.updateFuelLog(vId, editingFuelLogId, {
+          ...fuelFormData,
+          vehicleName: selectedVehicle.name,
+          odometer: odo,
+          liters: ltr,
+          pricePerLiter: price,
+          cost: computedCost,
+          mileage
+        });
+      } else {
+        await VehicleService.addFuelLog(vId, {
+          ...fuelFormData,
+          vehicleName: selectedVehicle.name,
+          odometer: odo,
+          liters: ltr,
+          pricePerLiter: price,
+          cost: computedCost,
+          mileage
+        }, activeUid);
+      }
 
       setShowFuelModal(false);
+      setEditingFuelLogId(null);
       setFuelFormData({
         date: new Date().toISOString().split('T')[0],
         fuelType: 'Petrol', odometer: '', liters: '', pricePerLiter: '', cost: '',
@@ -355,6 +375,22 @@ export default function VehicleManager() {
     }
   };
 
+  const handleEditFuel = (log: any) => {
+    setEditingFuelLogId(log._id || log.id);
+    setFuelFormData({
+      date: formatIsoDate(log.date),
+      fuelType: log.fuelType || 'Petrol',
+      odometer: log.odometer ? String(log.odometer) : '',
+      liters: log.liters ? String(log.liters) : '',
+      pricePerLiter: log.pricePerLiter ? String(log.pricePerLiter) : '',
+      cost: log.cost ? String(log.cost) : '',
+      isFullTank: typeof log.isFullTank === 'boolean' ? log.isFullTank : true,
+      station: log.station || '',
+      receiptUrl: log.receiptUrl || ''
+    });
+    setShowFuelModal(true);
+  };
+
   // Save Service Log
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -362,18 +398,28 @@ export default function VehicleManager() {
     const vId = selectedVehicle._id || selectedVehicle.id;
 
     try {
-      await VehicleService.addServiceLog(vId, {
-        ...serviceFormData,
-        vehicleName: selectedVehicle.name,
-        odometer: Number(serviceFormData.odometer) || 0,
-        cost: Number(serviceFormData.cost) || 0
-      }, activeUid);
+      if (editingServiceLogId) {
+        await VehicleService.updateServiceLog(vId, editingServiceLogId, {
+          ...serviceFormData,
+          vehicleName: selectedVehicle.name,
+          odometer: Number(serviceFormData.odometer) || 0,
+          cost: Number(serviceFormData.cost) || 0
+        });
+      } else {
+        await VehicleService.addServiceLog(vId, {
+          ...serviceFormData,
+          vehicleName: selectedVehicle.name,
+          odometer: Number(serviceFormData.odometer) || 0,
+          cost: Number(serviceFormData.cost) || 0
+        }, activeUid);
+      }
 
       await VehicleService.updateVehicle(vId, {
         lastServiceOdo: Number(serviceFormData.odometer) || selectedVehicle.lastServiceOdo
       });
 
       setShowServiceModal(false);
+      setEditingServiceLogId(null);
       setServiceFormData({
         date: new Date().toISOString().split('T')[0],
         serviceType: 'General Service', odometer: '', cost: '', garage: '', notes: '', receiptUrl: ''
@@ -383,6 +429,96 @@ export default function VehicleManager() {
     } catch (e: any) {
       console.error('Error saving service log:', e);
       alert('Failed to save service log: ' + (e.message || e));
+    }
+  };
+
+  const handleEditService = (log: any) => {
+    setEditingServiceLogId(log._id || log.id);
+    setServiceFormData({
+      date: formatIsoDate(log.date),
+      serviceType: log.serviceType || 'General Service',
+      odometer: log.odometer ? String(log.odometer) : '',
+      cost: log.cost ? String(log.cost) : '',
+      garage: log.garage || '',
+      notes: log.notes || '',
+      receiptUrl: log.receiptUrl || ''
+    });
+    setShowServiceModal(true);
+  };
+
+  // Open Subsection Quick Edit Modal
+  const openSubEdit = (type: string) => {
+    if (!selectedVehicle) return;
+    setSubEditType(type);
+    if (type === 'rc') {
+      setSubEditData({
+        rcNumber: selectedVehicle.rcNumber || '',
+        rcExpiry: formatIsoDate(selectedVehicle.rcExpiry),
+        rcDocUrl: selectedVehicle.rcDocUrl || ''
+      });
+    } else if (type === 'insurance') {
+      setSubEditData({
+        insuranceProvider: selectedVehicle.insuranceProvider || '',
+        insurancePolicyNumber: selectedVehicle.insurancePolicyNumber || '',
+        insurancePremium: selectedVehicle.insurancePremium ? String(selectedVehicle.insurancePremium) : '',
+        insuranceExpiry: formatIsoDate(selectedVehicle.insuranceExpiry),
+        insuranceDocUrl: selectedVehicle.insuranceDocUrl || ''
+      });
+    } else if (type === 'puc') {
+      setSubEditData({
+        pucNumber: selectedVehicle.pucNumber || '',
+        pucExpiry: formatIsoDate(selectedVehicle.pucExpiry),
+        pucDocUrl: selectedVehicle.pucDocUrl || ''
+      });
+    } else if (type === 'license') {
+      setSubEditData({
+        drivingLicenceNo: selectedVehicle.drivingLicenceNo || '',
+        drivingLicenceDocUrl: selectedVehicle.drivingLicenceDocUrl || ''
+      });
+    } else if (type === 'loan') {
+      setSubEditData({
+        financier: selectedVehicle.financier || '',
+        loanAccountNo: selectedVehicle.loanAccountNo || ''
+      });
+    } else if (type === 'oil') {
+      setSubEditData({
+        engineOilType: selectedVehicle.engineOilType || '5W-30 Synthetic',
+        lastOilChangeOdo: selectedVehicle.lastOilChangeOdo ? String(selectedVehicle.lastOilChangeOdo) : ''
+      });
+    } else if (type === 'tyre-battery') {
+      setSubEditData({
+        tyrePressureFront: String(selectedVehicle.tyrePressureFront || '32'),
+        tyrePressureRear: String(selectedVehicle.tyrePressureRear || '34'),
+        tyreBrand: selectedVehicle.tyreBrand || '',
+        batteryMake: selectedVehicle.batteryMake || ''
+      });
+    } else if (type === 'reminders') {
+      setSubEditData({
+        nextServiceOdo: selectedVehicle.nextServiceOdo ? String(selectedVehicle.nextServiceOdo) : '',
+        nextServiceDate: formatIsoDate(selectedVehicle.nextServiceDate)
+      });
+    }
+  };
+
+  const handleSaveSubEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVehicle) return;
+    const vId = selectedVehicle._id || selectedVehicle.id;
+    setSubEditSaving(true);
+    try {
+      const payload: any = { ...subEditData };
+      if (payload.insurancePremium !== undefined) payload.insurancePremium = Number(payload.insurancePremium) || 0;
+      if (payload.lastOilChangeOdo !== undefined) payload.lastOilChangeOdo = Number(payload.lastOilChangeOdo) || 0;
+      if (payload.nextServiceOdo !== undefined) payload.nextServiceOdo = Number(payload.nextServiceOdo) || 0;
+      await VehicleService.updateVehicle(vId, payload);
+      setSubEditType(null);
+      await fetchVehicles();
+      if (vId) fetchVehicleLogs(vId);
+    } catch (err: any) {
+      console.error('Error updating subsection:', err);
+      alert('Failed to update: ' + (err.message || err));
+    } finally {
+      setSubEditSaving(false);
     }
   };
 
@@ -647,24 +783,23 @@ export default function VehicleManager() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-glass">
-              {selectedVehicle.rcDocUrl ? (
+            <div className="pt-3 border-t border-glass flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => openSubEdit('rc')}
+                className="flex-1 py-3 bg-primary text-background rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-neon-primary-sm min-h-[44px]"
+              >
+                <Edit2 size={15} /> Update RC Details
+              </button>
+              {selectedVehicle.rcDocUrl && (
                 <a
                   href={selectedVehicle.rcDocUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full py-3 bg-primary/20 text-primary rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-primary/30 min-h-[44px]"
+                  className="py-3 px-4 bg-primary/20 text-primary rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-primary/30 min-h-[44px]"
                 >
-                  <ExternalLink size={16} /> View Cloud RC Certificate ↗
+                  <ExternalLink size={16} /> View Cloud RC ↗
                 </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleEditVehicle(selectedVehicle)}
-                  className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
-                >
-                  Upload RC Document
-                </button>
               )}
             </div>
           </div>
@@ -711,24 +846,23 @@ export default function VehicleManager() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-glass">
-              {selectedVehicle.insuranceDocUrl ? (
+            <div className="pt-3 border-t border-glass flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => openSubEdit('insurance')}
+                className="flex-1 py-3 bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md min-h-[44px]"
+              >
+                <Edit2 size={15} /> Update Policy Details
+              </button>
+              {selectedVehicle.insuranceDocUrl && (
                 <a
                   href={selectedVehicle.insuranceDocUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full py-3 bg-green-500/20 text-green-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-green-500/30 min-h-[44px]"
+                  className="py-3 px-4 bg-green-500/20 text-green-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-green-500/30 min-h-[44px]"
                 >
-                  <ExternalLink size={16} /> View Cloud Insurance Policy ↗
+                  <ExternalLink size={16} /> View Policy PDF ↗
                 </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleEditVehicle(selectedVehicle)}
-                  className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
-                >
-                  Upload Insurance Policy PDF
-                </button>
               )}
             </div>
           </div>
@@ -767,24 +901,23 @@ export default function VehicleManager() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-glass">
-              {selectedVehicle.pucDocUrl ? (
+            <div className="pt-3 border-t border-glass flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => openSubEdit('puc')}
+                className="flex-1 py-3 bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md min-h-[44px]"
+              >
+                <Edit2 size={15} /> Update PUC Certificate
+              </button>
+              {selectedVehicle.pucDocUrl && (
                 <a
                   href={selectedVehicle.pucDocUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full py-3 bg-emerald-500/20 text-emerald-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+                  className="py-3 px-4 bg-emerald-500/20 text-emerald-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
                 >
                   <ExternalLink size={16} /> View PUC Certificate ↗
                 </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleEditVehicle(selectedVehicle)}
-                  className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
-                >
-                  Upload PUC Document
-                </button>
               )}
             </div>
           </div>
@@ -804,24 +937,25 @@ export default function VehicleManager() {
                 <strong className="text-textMain">{user?.name || 'Owner'}</strong>
               </div>
             </div>
-            {selectedVehicle.drivingLicenceDocUrl ? (
-              <a
-                href={selectedVehicle.drivingLicenceDocUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-3 bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
-              >
-                <ExternalLink size={16} /> View Licence Document ↗
-              </a>
-            ) : (
+            <div className="pt-3 border-t border-glass flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
-                onClick={() => handleEditVehicle(selectedVehicle)}
-                className="w-full py-3 bg-surface border border-glass rounded-xl text-xs font-medium text-textMuted hover:text-textMain min-h-[44px]"
+                onClick={() => openSubEdit('license')}
+                className="flex-1 py-3 bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md min-h-[44px]"
               >
-                Link Driving Licence Document
+                <Edit2 size={15} /> Update Driving Licence
               </button>
-            )}
+              {selectedVehicle.drivingLicenceDocUrl && (
+                <a
+                  href={selectedVehicle.drivingLicenceDocUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-3 px-4 bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  <ExternalLink size={16} /> View Licence Doc ↗
+                </a>
+              )}
+            </div>
           </div>
         )}
 
@@ -849,10 +983,10 @@ export default function VehicleManager() {
               </button>
               <button
                 type="button"
-                onClick={() => handleEditVehicle(selectedVehicle)}
+                onClick={() => openSubEdit('loan')}
                 className="px-4 py-2.5 bg-primary text-background rounded-xl text-xs font-semibold min-h-[44px]"
               >
-                Edit Loan Specs
+                <Edit2 size={14} className="inline mr-1" /> Edit Loan Specs
               </button>
             </div>
           </div>
@@ -889,12 +1023,20 @@ export default function VehicleManager() {
 
                     <div className="flex items-center justify-between text-xs pt-2 border-t border-glass text-textMuted">
                       <span>Odometer: <strong className="text-textMain">{Number(log.odometer || 0).toLocaleString()} km</strong></span>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         {log.receiptUrl && (
                           <a href={log.receiptUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium min-h-[36px] flex items-center">
                             Invoice ↗
                           </a>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleEditService(log)}
+                          className="text-textMuted hover:text-yellow-400 p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          aria-label="Edit service log"
+                        >
+                          <Edit2 size={15} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget({ id: log._id, type: 'service' })}
@@ -930,13 +1072,22 @@ export default function VehicleManager() {
                 <strong className="text-textMain">Every 10,000 km or 12 months</strong>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowServiceModal(true)}
-              className="w-full py-3 bg-primary text-background rounded-xl text-xs font-semibold shadow-neon-primary-sm min-h-[44px]"
-            >
-              Record Oil & Filter Service
-            </button>
+            <div className="pt-3 border-t border-glass flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => openSubEdit('oil')}
+                className="flex-1 py-3 bg-purple-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <Edit2 size={15} /> Update Oil Specifications
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowServiceModal(true)}
+                className="py-3 px-4 bg-primary text-background rounded-xl text-xs font-semibold shadow-neon-primary-sm min-h-[44px]"
+              >
+                Record Service
+              </button>
+            </div>
           </div>
         )}
 
@@ -980,6 +1131,14 @@ export default function VehicleManager() {
                         )}
                         <button
                           type="button"
+                          onClick={() => handleEditFuel(log)}
+                          className="text-textMuted hover:text-primary p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          aria-label="Edit fuel log"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setDeleteTarget({ id: log._id, type: 'fuel' })}
                           className="text-red-400 hover:text-red-300 p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
                           aria-label="Delete fuel log"
@@ -1016,6 +1175,15 @@ export default function VehicleManager() {
                 <span className="text-textMuted block mb-1">Battery Make</span>
                 <strong className="text-textMain text-sm">{selectedVehicle.batteryMake || 'Exide / Amaron'}</strong>
               </div>
+            </div>
+            <div className="pt-3 border-t border-glass">
+              <button
+                type="button"
+                onClick={() => openSubEdit('tyre-battery')}
+                className="w-full py-3 bg-teal-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <Edit2 size={15} /> Update Tyre Pressures & Battery Specs
+              </button>
             </div>
           </div>
         )}
@@ -1114,6 +1282,15 @@ export default function VehicleManager() {
                 <span className="text-xs font-bold text-emerald-400 font-mono">{selectedVehicle.pucExpiry ? new Date(selectedVehicle.pucExpiry).toLocaleDateString() : 'No date'}</span>
               </div>
             </div>
+            <div className="pt-3 border-t border-glass">
+              <button
+                type="button"
+                onClick={() => openSubEdit('reminders')}
+                className="w-full py-3 bg-orange-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <Edit2 size={15} /> Configure Service Reminders
+              </button>
+            </div>
           </div>
         )}
 
@@ -1135,6 +1312,8 @@ export default function VehicleManager() {
             </button>
           </div>
         )}
+
+        {renderModals()}
       </div>
     );
   }
@@ -1248,6 +1427,8 @@ export default function VehicleManager() {
             ))}
           </div>
         </div>
+
+        {renderModals()}
       </div>
     );
   }
@@ -1359,8 +1540,15 @@ export default function VehicleManager() {
         </div>
       )}
 
-      {/* MODAL: ADD / EDIT VEHICLE (Mobile optimized single column with touch inputs) */}
-      <AnimatePresence>
+      {renderModals()}
+    </div>
+  );
+
+  function renderModals() {
+    return (
+      <>
+        {/* MODAL: ADD / EDIT VEHICLE (Mobile optimized single column with touch inputs) */}
+        <AnimatePresence>
         {showVehicleModal && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto" onClick={() => setShowVehicleModal(false)}>
             <motion.div
@@ -1580,8 +1768,10 @@ export default function VehicleManager() {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-2 border-t border-glass">
-                  <button type="button" onClick={() => setShowFuelModal(false)} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-primary text-background font-bold rounded-xl min-h-[44px]">Save Fill-up</button>
+                  <button type="button" onClick={() => { setShowFuelModal(false); setEditingFuelLogId(null); }} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-primary text-background font-bold rounded-xl min-h-[44px]">
+                    {editingFuelLogId ? 'Update Fill-up' : 'Save Fill-up'}
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -1660,8 +1850,311 @@ export default function VehicleManager() {
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2 border-t border-glass">
-                  <button type="button" onClick={() => setShowServiceModal(false)} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-yellow-400 text-black font-bold rounded-xl min-h-[44px]">Save Service</button>
+                  <button type="button" onClick={() => { setShowServiceModal(false); setEditingServiceLogId(null); }} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-yellow-400 text-black font-bold rounded-xl min-h-[44px]">
+                    {editingServiceLogId ? 'Update Service' : 'Save Service'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: SUBSECTION QUICK EDIT */}
+      <AnimatePresence>
+        {subEditType && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 overflow-y-auto" onClick={() => setSubEditType(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md glass-panel p-5 my-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-base font-bold text-textMain capitalize">
+                  {subEditType === 'rc' ? 'Update RC Registration Book' :
+                   subEditType === 'insurance' ? 'Update Insurance Policy' :
+                   subEditType === 'puc' ? 'Update PUC Certificate' :
+                   subEditType === 'license' ? 'Update Driving Licence' :
+                   subEditType === 'loan' ? 'Update Loan & Hypothecation' :
+                   subEditType === 'oil' ? 'Update Engine Oil Specifications' :
+                   subEditType === 'tyre-battery' ? 'Update Tyre & Battery Specs' :
+                   'Configure Service Reminders'}
+                </h2>
+                <button onClick={() => setSubEditType(null)} className="text-textMuted hover:text-textMain p-1">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSubEdit} className="space-y-3 text-xs">
+                {subEditType === 'rc' && (
+                  <>
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">RC Number *</label>
+                      <input
+                        type="text"
+                        required
+                        value={subEditData.rcNumber || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, rcNumber: e.target.value })}
+                        placeholder="e.g. TN01AB1234"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain font-mono min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">RC Expiry Date</label>
+                      <input
+                        type="date"
+                        value={subEditData.rcExpiry || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, rcExpiry: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                      />
+                    </div>
+                    <FileUpload
+                      label="Upload RC Book (Photo or PDF)"
+                      currentUrl={subEditData.rcDocUrl}
+                      onUploadSuccess={(url) => setSubEditData({ ...subEditData, rcDocUrl: url })}
+                      onRemove={() => setSubEditData({ ...subEditData, rcDocUrl: '' })}
+                    />
+                  </>
+                )}
+
+                {subEditType === 'insurance' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Insurance Provider</label>
+                        <input
+                          type="text"
+                          value={subEditData.insuranceProvider || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, insuranceProvider: e.target.value })}
+                          placeholder="e.g. HDFC ERGO, ICICI Lombard"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Policy Number</label>
+                        <input
+                          type="text"
+                          value={subEditData.insurancePolicyNumber || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, insurancePolicyNumber: e.target.value })}
+                          placeholder="POL1234567"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain font-mono min-h-[44px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Annual Premium (₹)</label>
+                        <input
+                          type="number"
+                          value={subEditData.insurancePremium || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, insurancePremium: e.target.value })}
+                          placeholder="e.g. 8500"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Expiry Date</label>
+                        <input
+                          type="date"
+                          value={subEditData.insuranceExpiry || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, insuranceExpiry: e.target.value })}
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                    </div>
+                    <FileUpload
+                      label="Upload Insurance Certificate"
+                      currentUrl={subEditData.insuranceDocUrl}
+                      onUploadSuccess={(url) => setSubEditData({ ...subEditData, insuranceDocUrl: url })}
+                      onRemove={() => setSubEditData({ ...subEditData, insuranceDocUrl: '' })}
+                    />
+                  </>
+                )}
+
+                {subEditType === 'puc' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">PUC Number</label>
+                        <input
+                          type="text"
+                          value={subEditData.pucNumber || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, pucNumber: e.target.value })}
+                          placeholder="e.g. PUC987654"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain font-mono min-h-[44px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">PUC Expiry Date</label>
+                        <input
+                          type="date"
+                          value={subEditData.pucExpiry || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, pucExpiry: e.target.value })}
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                    </div>
+                    <FileUpload
+                      label="Upload PUC Document"
+                      currentUrl={subEditData.pucDocUrl}
+                      onUploadSuccess={(url) => setSubEditData({ ...subEditData, pucDocUrl: url })}
+                      onRemove={() => setSubEditData({ ...subEditData, pucDocUrl: '' })}
+                    />
+                  </>
+                )}
+
+                {subEditType === 'license' && (
+                  <>
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Driving Licence Number</label>
+                      <input
+                        type="text"
+                        value={subEditData.drivingLicenceNo || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, drivingLicenceNo: e.target.value })}
+                        placeholder="e.g. DL-0420110012345"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain font-mono min-h-[44px]"
+                      />
+                    </div>
+                    <FileUpload
+                      label="Upload Driving Licence Document"
+                      currentUrl={subEditData.drivingLicenceDocUrl}
+                      onUploadSuccess={(url) => setSubEditData({ ...subEditData, drivingLicenceDocUrl: url })}
+                      onRemove={() => setSubEditData({ ...subEditData, drivingLicenceDocUrl: '' })}
+                    />
+                  </>
+                )}
+
+                {subEditType === 'loan' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Financier / Bank Name</label>
+                      <input
+                        type="text"
+                        value={subEditData.financier || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, financier: e.target.value })}
+                        placeholder="e.g. State Bank of India, HDFC"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Loan Account Number</label>
+                      <input
+                        type="text"
+                        value={subEditData.loanAccountNo || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, loanAccountNo: e.target.value })}
+                        placeholder="e.g. LA-992384729"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain font-mono min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {subEditType === 'oil' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Engine Oil Grade / Specification</label>
+                      <input
+                        type="text"
+                        value={subEditData.engineOilType || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, engineOilType: e.target.value })}
+                        placeholder="e.g. 5W-30 Full Synthetic, 10W-40"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Last Oil Change Odometer (km)</label>
+                      <input
+                        type="number"
+                        value={subEditData.lastOilChangeOdo || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, lastOilChangeOdo: e.target.value })}
+                        placeholder="12000"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {subEditType === 'tyre-battery' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Front Tyre PSI</label>
+                        <input
+                          type="number"
+                          value={subEditData.tyrePressureFront || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, tyrePressureFront: e.target.value })}
+                          placeholder="32"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Rear Tyre PSI</label>
+                        <input
+                          type="number"
+                          value={subEditData.tyrePressureRear || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, tyrePressureRear: e.target.value })}
+                          placeholder="34"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Tyre Brand</label>
+                        <input
+                          type="text"
+                          value={subEditData.tyreBrand || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, tyreBrand: e.target.value })}
+                          placeholder="MRF, Michelin, Apollo"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-textMuted font-semibold mb-1">Battery Make</label>
+                        <input
+                          type="text"
+                          value={subEditData.batteryMake || ''}
+                          onChange={(e) => setSubEditData({ ...subEditData, batteryMake: e.target.value })}
+                          placeholder="Amaron, Exide"
+                          className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {subEditType === 'reminders' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Next Service Target Odometer (km)</label>
+                      <input
+                        type="number"
+                        value={subEditData.nextServiceOdo || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, nextServiceOdo: e.target.value })}
+                        placeholder="20000"
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-textMuted font-semibold mb-1">Next Service Target Date</label>
+                      <input
+                        type="date"
+                        value={subEditData.nextServiceDate || ''}
+                        onChange={(e) => setSubEditData({ ...subEditData, nextServiceDate: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-surface border border-glass text-textMain min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-glass">
+                  <button type="button" onClick={() => setSubEditType(null)} className="px-4 py-2 bg-surface text-textMuted rounded-xl min-h-[44px]">Cancel</button>
+                  <button type="submit" disabled={subEditSaving} className="px-5 py-2 bg-primary text-background font-bold rounded-xl min-h-[44px] shadow-neon-primary-sm disabled:opacity-50">
+                    {subEditSaving ? 'Saving...' : 'Save Updates'}
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -1677,6 +2170,7 @@ export default function VehicleManager() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </>
   );
+}
 }

@@ -1,7 +1,12 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-import { getFirestore } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,7 +21,19 @@ const firebaseConfig = {
 // Initialize Firebase as singleton
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Layer A: Enable Firestore SDK Persistent Local Cache with Multi-Tab Coordination
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} catch {
+  firestoreDb = getFirestore(app);
+}
+export const db = firestoreDb;
 export const storage = getStorage(app);
 
 export const googleProvider = new GoogleAuthProvider();

@@ -60,6 +60,7 @@ export default function AgricultureManager() {
 
   // Farm Modal
   const [showFarmModal, setShowFarmModal] = useState(false);
+  const [editFarmId, setEditFarmId] = useState<string | null>(null);
   const [farmFormData, setFarmFormData] = useState({
     name: '',
     surveyNumber: '',
@@ -72,6 +73,7 @@ export default function AgricultureManager() {
 
   // Activity Modal
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [editActivityId, setEditActivityId] = useState<string | null>(null);
   const [activityFormData, setActivityFormData] = useState({
     activityType: 'Fertilizing',
     date: new Date().toISOString().split('T')[0],
@@ -196,16 +198,38 @@ export default function AgricultureManager() {
     if (!farmFormData.name.trim()) return;
 
     try {
-      await AgricultureService.addFarm(activeUid, {
-        ...farmFormData,
-        acreage: Number(farmFormData.acreage) || 0
-      });
+      if (editFarmId) {
+        await AgricultureService.updateFarm(editFarmId, {
+          ...farmFormData,
+          acreage: Number(farmFormData.acreage) || 0
+        });
+      } else {
+        await AgricultureService.addFarm(activeUid, {
+          ...farmFormData,
+          acreage: Number(farmFormData.acreage) || 0
+        });
+      }
       setShowFarmModal(false);
+      setEditFarmId(null);
       setFarmFormData({ name: '', surveyNumber: '', location: '', acreage: '', soilType: 'Black Cotton Soil', irrigationType: 'Drip Irrigation', soilTestReportUrl: '' });
       fetchData();
     } catch (e) {
       console.error('Error saving farm:', e);
     }
+  };
+
+  const handleEditFarm = (f: any) => {
+    setEditFarmId(f._id || f.id);
+    setFarmFormData({
+      name: f.name || '',
+      surveyNumber: f.surveyNumber || '',
+      location: f.location || '',
+      acreage: f.acreage ? String(f.acreage) : '',
+      soilType: f.soilType || 'Black Cotton Soil',
+      irrigationType: f.irrigationType || 'Drip Irrigation',
+      soilTestReportUrl: f.soilTestReportUrl || ''
+    });
+    setShowFarmModal(true);
   };
 
   // Save Activity
@@ -214,17 +238,36 @@ export default function AgricultureManager() {
     if (!selectedCrop) return;
 
     try {
-      await AgricultureService.addCropActivity(selectedCrop._id, {
-        ...activityFormData,
-        cost: Number(activityFormData.cost) || 0
-      }, activeUid);
+      if (editActivityId) {
+        await AgricultureService.updateCropActivity(selectedCrop._id, editActivityId, {
+          ...activityFormData,
+          cost: Number(activityFormData.cost) || 0
+        });
+      } else {
+        await AgricultureService.addCropActivity(selectedCrop._id, {
+          ...activityFormData,
+          cost: Number(activityFormData.cost) || 0
+        }, activeUid);
+      }
       setShowActivityModal(false);
+      setEditActivityId(null);
       setActivityFormData({ activityType: 'Fertilizing', date: new Date().toISOString().split('T')[0], cost: '', notes: '' });
       fetchActivities(selectedCrop._id);
       fetchData();
     } catch (e) {
       console.error('Error saving activity:', e);
     }
+  };
+
+  const handleEditActivity = (act: any) => {
+    setEditActivityId(act._id || act.id);
+    setActivityFormData({
+      activityType: act.activityType || 'Fertilizing',
+      date: formatIsoDate(act.date, getTodayIso()),
+      cost: act.cost ? String(act.cost) : '',
+      notes: act.notes || ''
+    });
+    setShowActivityModal(true);
   };
 
   // Confirm Delete
@@ -488,9 +531,14 @@ export default function AgricultureManager() {
                         <h4 className="font-bold text-lg text-textMain">{f.name}</h4>
                         <p className="text-xs text-textMuted">{f.location || 'Rural Parcel'}</p>
                       </div>
-                      <button onClick={() => setDeleteTarget({ id: f._id, type: 'farm' })} className="text-textMuted hover:text-red-400">
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => handleEditFarm(f)} className="text-textMuted hover:text-primary p-1" title="Edit Parcel">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => setDeleteTarget({ id: f._id, type: 'farm' })} className="text-textMuted hover:text-red-400 p-1" title="Delete Parcel">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2 text-xs divide-y divide-glass pt-2">
@@ -577,9 +625,14 @@ export default function AgricultureManager() {
                         {act.cost > 0 ? `₹${Number(act.cost).toLocaleString('en-IN')}` : '—'}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button onClick={() => setDeleteTarget({ id: act._id, type: 'activity' })} className="text-textMuted hover:text-red-400">
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => handleEditActivity(act)} className="text-textMuted hover:text-yellow-400 p-1" title="Edit Activity">
+                            <Edit2 size={15} />
+                          </button>
+                          <button onClick={() => setDeleteTarget({ id: act._id, type: 'activity' })} className="text-textMuted hover:text-red-400 p-1" title="Delete Activity">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -799,7 +852,7 @@ export default function AgricultureManager() {
               onClick={(e) => e.stopPropagation()}
               className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4">Register Land Parcel</h2>
+              <h2 className="text-xl font-bold text-textMain mb-4">{editFarmId ? 'Edit Land Parcel' : 'Register Land Parcel'}</h2>
               <form onSubmit={handleSaveFarm} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-textMuted mb-1">Parcel / Farm Name *</label>
@@ -856,8 +909,10 @@ export default function AgricultureManager() {
                   </select>
                 </div>
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowFarmModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">Save Parcel</button>
+                  <button type="button" onClick={() => { setShowFarmModal(false); setEditFarmId(null); }} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
+                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">
+                    {editFarmId ? 'Update Parcel' : 'Save Parcel'}
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -876,7 +931,7 @@ export default function AgricultureManager() {
               onClick={(e) => e.stopPropagation()}
               className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4">Log Field Activity</h2>
+              <h2 className="text-xl font-bold text-textMain mb-4">{editActivityId ? 'Edit Field Activity' : 'Log Field Activity'}</h2>
               <form onSubmit={handleSaveActivity} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-textMuted mb-1">Operation Type</label>
@@ -922,8 +977,10 @@ export default function AgricultureManager() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowActivityModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-yellow-400 text-black px-5 py-2 rounded-xl font-medium text-sm hover:bg-yellow-300">Save Activity</button>
+                  <button type="button" onClick={() => { setShowActivityModal(false); setEditActivityId(null); }} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
+                  <button type="submit" className="bg-yellow-400 text-black px-5 py-2 rounded-xl font-medium text-sm hover:bg-yellow-300">
+                    {editActivityId ? 'Update Activity' : 'Save Activity'}
+                  </button>
                 </div>
               </form>
             </motion.div>

@@ -46,6 +46,9 @@ export default function DairyManager() {
   const [activeCow, setActiveCow] = useState<any>(null);
   const [editCowId, setEditCowId] = useState<string | null>(null);
   const [editFarmLogId, setEditFarmLogId] = useState<string | null>(null);
+  const [editFeedId, setEditFeedId] = useState<string | null>(null);
+  const [editVetId, setEditVetId] = useState<string | null>(null);
+  const [editBreedingId, setEditBreedingId] = useState<string | null>(null);
 
   // Confirm Delete Modal
   const [deleteModal, setDeleteModal] = useState<{
@@ -239,12 +242,21 @@ export default function DairyManager() {
   const handleSaveFeed = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await DairyService.addFeed(userId, {
-        ...feedData,
-        amount: Number(feedData.amount) || 0,
-        quantityKg: Number(feedData.quantityKg) || 0
-      });
+      if (editFeedId) {
+        await DairyService.updateFeed(editFeedId, {
+          ...feedData,
+          amount: Number(feedData.amount) || 0,
+          quantityKg: Number(feedData.quantityKg) || 0
+        });
+      } else {
+        await DairyService.addFeed(userId, {
+          ...feedData,
+          amount: Number(feedData.amount) || 0,
+          quantityKg: Number(feedData.quantityKg) || 0
+        });
+      }
       setShowFeedModal(false);
+      setEditFeedId(null);
       setFeedData({
         feedType: 'Concentrates',
         description: '',
@@ -258,18 +270,39 @@ export default function DairyManager() {
     }
   };
 
+  const handleEditFeed = (feed: any) => {
+    setEditFeedId(feed._id || feed.id);
+    setFeedData({
+      feedType: feed.feedType || 'Concentrates',
+      description: feed.description || '',
+      quantityKg: feed.quantityKg ? String(feed.quantityKg) : '',
+      amount: feed.amount ? String(feed.amount) : '',
+      date: feed.date ? new Date(feed.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    });
+    setShowFeedModal(true);
+  };
+
   // Vet Record CRUD
   const handleSaveVetRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vetData.cowId) return;
     const selectedCow = cows.find(c => (c._id || c.id) === vetData.cowId);
     try {
-      await DairyService.addVetRecord(vetData.cowId, {
-        ...vetData,
-        tagNumber: selectedCow?.tagNumber || 'Unknown',
-        cost: Number(vetData.cost) || 0
-      }, userId);
+      if (editVetId) {
+        await DairyService.updateVetRecord(editVetId, {
+          ...vetData,
+          tagNumber: selectedCow?.tagNumber || 'Unknown',
+          cost: Number(vetData.cost) || 0
+        });
+      } else {
+        await DairyService.addVetRecord(vetData.cowId, {
+          ...vetData,
+          tagNumber: selectedCow?.tagNumber || 'Unknown',
+          cost: Number(vetData.cost) || 0
+        }, userId);
+      }
       setShowVetModal(false);
+      setEditVetId(null);
       setVetData({
         cowId: '',
         treatment: 'Foot & Mouth Vaccination',
@@ -286,6 +319,21 @@ export default function DairyManager() {
     }
   };
 
+  const handleEditVet = (vet: any) => {
+    setEditVetId(vet._id || vet.id);
+    setVetData({
+      cowId: vet.cowId || (cows.length > 0 ? (cows[0]._id || cows[0].id) : ''),
+      treatment: vet.treatment || '',
+      vetName: vet.vetName || '',
+      cost: vet.cost ? String(vet.cost) : '',
+      date: vet.date ? new Date(vet.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      nextBoosterDate: vet.nextBoosterDate ? new Date(vet.nextBoosterDate).toISOString().split('T')[0] : '',
+      notes: vet.notes || '',
+      documentUrl: vet.documentUrl || ''
+    });
+    setShowVetModal(true);
+  };
+
   // Breeding Record CRUD
   const handleSaveBreeding = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,12 +345,21 @@ export default function DairyManager() {
     const expectedCalving = new Date(insemDate.getTime() + 283 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     try {
-      await DairyService.addBreedingRecord(breedingData.cowId, {
-        ...breedingData,
-        tagNumber: selectedCow?.tagNumber || 'Unknown',
-        expectedCalvingDate: expectedCalving
-      }, userId);
+      if (editBreedingId) {
+        await DairyService.updateBreedingRecord(editBreedingId, {
+          ...breedingData,
+          tagNumber: selectedCow?.tagNumber || 'Unknown',
+          expectedCalvingDate: expectedCalving
+        });
+      } else {
+        await DairyService.addBreedingRecord(breedingData.cowId, {
+          ...breedingData,
+          tagNumber: selectedCow?.tagNumber || 'Unknown',
+          expectedCalvingDate: expectedCalving
+        }, userId);
+      }
       setShowBreedingModal(false);
+      setEditBreedingId(null);
       setBreedingData({
         cowId: '',
         inseminationDate: new Date().toISOString().split('T')[0],
@@ -314,6 +371,18 @@ export default function DairyManager() {
     } catch (e) {
       console.error('Error saving breeding record:', e);
     }
+  };
+
+  const handleEditBreeding = (br: any) => {
+    setEditBreedingId(br._id || br.id);
+    setBreedingData({
+      cowId: br.cowId || (cows.length > 0 ? (cows[0]._id || cows[0].id) : ''),
+      inseminationDate: br.inseminationDate ? new Date(br.inseminationDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      sireId: br.sireId || '',
+      pregnancyStatus: br.pregnancyStatus || 'Inseminated',
+      notes: br.notes || ''
+    });
+    setShowBreedingModal(true);
   };
 
   // Generic Deletion Executor
@@ -467,7 +536,7 @@ export default function DairyManager() {
       </div>
 
       {/* Navigation Subsections / Tabs */}
-      <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1">
+      <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { key: 'cattle', label: `Cattle Registry (${cows.length})`, icon: Milk },
           { key: 'production', label: `Milk Yield & Sales (${farmLogs.length})`, icon: FileDigit },
@@ -808,18 +877,27 @@ export default function DairyManager() {
                       <td className="py-3 px-4 text-right text-textMuted">{feed.quantityKg ? `${feed.quantityKg} kg` : '-'}</td>
                       <td className="py-3 px-4 text-right font-bold text-orange-400">₹{feed.amount?.toLocaleString()}</td>
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => setDeleteModal({
-                            isOpen: true,
-                            type: 'feed',
-                            id: feed._id || feed.id,
-                            title: `Feed Log (${feed.description || feed.feedType})`
-                          })}
-                          className="text-textMuted hover:text-red-400 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEditFeed(feed)}
+                            className="text-textMuted hover:text-orange-400 transition-colors"
+                            title="Edit Feed Purchase"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({
+                              isOpen: true,
+                              type: 'feed',
+                              id: feed._id || feed.id,
+                              title: `Feed Log (${feed.description || feed.feedType})`
+                            })}
+                            className="text-textMuted hover:text-red-400 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -892,18 +970,27 @@ export default function DairyManager() {
                         ) : '-'}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => setDeleteModal({
-                            isOpen: true,
-                            type: 'vet',
-                            id: vet._id || vet.id,
-                            title: `Treatment for #${vet.tagNumber}`
-                          })}
-                          className="text-textMuted hover:text-red-400 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEditVet(vet)}
+                            className="text-textMuted hover:text-red-400 transition-colors"
+                            title="Edit Vet Record"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({
+                              isOpen: true,
+                              type: 'vet',
+                              id: vet._id || vet.id,
+                              title: `Treatment for #${vet.tagNumber}`
+                            })}
+                            className="text-textMuted hover:text-red-400 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -991,7 +1078,13 @@ export default function DairyManager() {
                       {br.notes && <p className="text-xs text-textMuted italic mb-3">"{br.notes}"</p>}
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleEditBreeding(br)}
+                        className="text-textMuted hover:text-blue-400 text-xs flex items-center gap-1 transition-colors"
+                      >
+                        <Edit2 size={14} /> Edit
+                      </button>
                       <button
                         onClick={() => setDeleteModal({
                           isOpen: true,
@@ -1164,7 +1257,7 @@ export default function DairyManager() {
         {showFeedModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowFeedModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Log Feed & Fodder Expense</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editFeedId ? 'Edit Feed & Fodder Purchase' : 'Log Feed & Fodder Expense'}</h2>
               <form onSubmit={handleSaveFeed} className="space-y-4">
                 <div>
                   <label className="text-xs text-textMuted mb-1 block">Feed Type</label>
@@ -1199,9 +1292,9 @@ export default function DairyManager() {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowFeedModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
+                  <button type="button" onClick={() => { setShowFeedModal(false); setEditFeedId(null); }} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm shadow-md hover:bg-orange-600 transition-colors">
-                    Save Feed Purchase
+                    {editFeedId ? 'Update Feed Purchase' : 'Save Feed Purchase'}
                   </button>
                 </div>
               </form>
@@ -1215,7 +1308,7 @@ export default function DairyManager() {
         {showVetModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowVetModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Log Veterinary / Medical Treatment</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editVetId ? 'Edit Veterinary Treatment' : 'Log Veterinary / Medical Treatment'}</h2>
               <form onSubmit={handleSaveVetRecord} className="space-y-4">
                 <div>
                   <label className="text-xs text-textMuted mb-1 block">Select Cattle *</label>
@@ -1267,9 +1360,9 @@ export default function DairyManager() {
                 />
 
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowVetModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
+                  <button type="button" onClick={() => { setShowVetModal(false); setEditVetId(null); }} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-red-500 text-white rounded-lg font-bold text-sm shadow-md hover:bg-red-600 transition-colors">
-                    Save Treatment
+                    {editVetId ? 'Update Treatment' : 'Save Treatment'}
                   </button>
                 </div>
               </form>
@@ -1283,7 +1376,7 @@ export default function DairyManager() {
         {showBreedingModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowBreedingModal(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-panel p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h2 className="text-xl font-bold mb-4 text-textMain">Record Insemination / Breeding</h2>
+              <h2 className="text-xl font-bold mb-4 text-textMain">{editBreedingId ? 'Edit Breeding Record' : 'Record Insemination / Breeding'}</h2>
               <form onSubmit={handleSaveBreeding} className="space-y-4">
                 <div>
                   <label className="text-xs text-textMuted mb-1 block">Select Cattle *</label>
@@ -1326,9 +1419,9 @@ export default function DairyManager() {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-6 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowBreedingModal(false)} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
+                  <button type="button" onClick={() => { setShowBreedingModal(false); setEditBreedingId(null); }} className="px-4 py-2 text-sm text-textMuted hover:text-textMain">Cancel</button>
                   <button type="submit" className="px-5 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm shadow-md hover:bg-blue-600 transition-colors">
-                    Save Breeding Record
+                    {editBreedingId ? 'Update Breeding Record' : 'Save Breeding Record'}
                   </button>
                 </div>
               </form>

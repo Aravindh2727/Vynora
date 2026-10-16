@@ -43,6 +43,7 @@ export default function StudentPlanner() {
   // Courses State
   const [courses, setCourses] = useState<any[]>([]);
   const [showCourseModal, setShowCourseModal] = useState(false);
+  const [editCourseId, setEditCourseId] = useState<string | null>(null);
   const [courseFormData, setCourseFormData] = useState({
     courseName: '',
     courseCode: '',
@@ -54,6 +55,7 @@ export default function StudentPlanner() {
   // Timetable State
   const [timetable, setTimetable] = useState<any[]>([]);
   const [showTimetableModal, setShowTimetableModal] = useState(false);
+  const [editSlotId, setEditSlotId] = useState<string | null>(null);
   const [timetableFormData, setTimetableFormData] = useState({
     day: 'Monday',
     startTime: '09:00',
@@ -126,13 +128,30 @@ export default function StudentPlanner() {
     if (!courseFormData.courseName.trim()) return;
 
     try {
-      await StudentService.addCourse(activeUid, courseFormData);
+      if (editCourseId) {
+        await StudentService.updateCourse(editCourseId, courseFormData);
+      } else {
+        await StudentService.addCourse(activeUid, courseFormData);
+      }
       setShowCourseModal(false);
+      setEditCourseId(null);
       setCourseFormData({ courseName: '', courseCode: '', instructor: '', credits: '3', room: '' });
       fetchData();
     } catch (e) {
       console.error('Error saving course:', e);
     }
+  };
+
+  const handleEditCourse = (c: any) => {
+    setEditCourseId(c._id || c.id);
+    setCourseFormData({
+      courseName: c.courseName || '',
+      courseCode: c.courseCode || '',
+      instructor: c.instructor || '',
+      credits: String(c.credits || '3'),
+      room: c.room || ''
+    });
+    setShowCourseModal(true);
   };
 
   // Save Timetable Slot
@@ -141,13 +160,30 @@ export default function StudentPlanner() {
     if (!timetableFormData.subject.trim()) return;
 
     try {
-      await StudentService.addTimetableSlot(activeUid, timetableFormData);
+      if (editSlotId) {
+        await StudentService.updateTimetableSlot(editSlotId, timetableFormData);
+      } else {
+        await StudentService.addTimetableSlot(activeUid, timetableFormData);
+      }
       setShowTimetableModal(false);
+      setEditSlotId(null);
       setTimetableFormData({ day: 'Monday', startTime: '09:00', endTime: '10:00', subject: '', room: '' });
       fetchData();
     } catch (e) {
       console.error('Error saving timetable slot:', e);
     }
+  };
+
+  const handleEditSlot = (slot: any) => {
+    setEditSlotId(slot._id || slot.id);
+    setTimetableFormData({
+      day: slot.day || 'Monday',
+      startTime: slot.startTime || '09:00',
+      endTime: slot.endTime || '10:00',
+      subject: slot.subject || '',
+      room: slot.room || ''
+    });
+    setShowTimetableModal(true);
   };
 
   // Toggle Completion
@@ -447,9 +483,14 @@ export default function StudentPlanner() {
                         </span>
                         <h4 className="font-bold text-lg text-textMain mt-1.5">{c.courseName}</h4>
                       </div>
-                      <button onClick={() => setDeleteTarget({ id: c._id, type: 'course' })} className="text-textMuted hover:text-red-400">
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => handleEditCourse(c)} className="text-textMuted hover:text-primary p-1" title="Edit Course">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => setDeleteTarget({ id: c._id, type: 'course' })} className="text-textMuted hover:text-red-400 p-1" title="Delete Course">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 text-xs text-textMuted pt-2 border-t border-glass">
@@ -503,12 +544,22 @@ export default function StudentPlanner() {
                         <div key={slot._id} className="p-2 rounded-lg bg-surface border border-glass text-xs relative group">
                           <div className="flex justify-between items-start">
                             <span className="font-bold text-textMain truncate">{slot.subject}</span>
-                            <button
-                              onClick={() => setDeleteTarget({ id: slot._id, type: 'timetable' })}
-                              className="text-textMuted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Trash2 size={12} />
-                            </button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleEditSlot(slot)}
+                                className="text-textMuted hover:text-primary"
+                                title="Edit Slot"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget({ id: slot._id, type: 'timetable' })}
+                                className="text-textMuted hover:text-red-400"
+                                title="Delete Slot"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </div>
                           <p className="text-[10px] text-primary font-mono mt-0.5">{slot.startTime} - {slot.endTime}</p>
                           {slot.room && <p className="text-[10px] text-textMuted mt-0.5">{slot.room}</p>}
@@ -645,7 +696,7 @@ export default function StudentPlanner() {
               onClick={(e) => e.stopPropagation()}
               className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4">Enroll New Course</h2>
+              <h2 className="text-xl font-bold text-textMain mb-4">{editCourseId ? 'Edit Enrolled Subject' : 'Enroll New Course'}</h2>
               <form onSubmit={handleSaveCourse} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-textMuted mb-1">Course Name *</label>
@@ -690,8 +741,10 @@ export default function StudentPlanner() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowCourseModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">Save Course</button>
+                  <button type="button" onClick={() => { setShowCourseModal(false); setEditCourseId(null); }} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
+                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">
+                    {editCourseId ? 'Update Course' : 'Save Course'}
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -710,7 +763,7 @@ export default function StudentPlanner() {
               onClick={(e) => e.stopPropagation()}
               className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4">Add Timetable Slot</h2>
+              <h2 className="text-xl font-bold text-textMain mb-4">{editSlotId ? 'Edit Timetable Slot' : 'Add Timetable Slot'}</h2>
               <form onSubmit={handleSaveTimetable} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-textMuted mb-1">Day of Week</label>
@@ -768,8 +821,10 @@ export default function StudentPlanner() {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowTimetableModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">Add Slot</button>
+                  <button type="button" onClick={() => { setShowTimetableModal(false); setEditSlotId(null); }} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
+                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">
+                    {editSlotId ? 'Update Slot' : 'Add Slot'}
+                  </button>
                 </div>
               </form>
             </motion.div>

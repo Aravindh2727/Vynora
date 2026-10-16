@@ -5,7 +5,7 @@ import {
   CheckSquare, Car, AlertTriangle, FileDigit, Landmark, ChevronRight, Plus, 
   ArrowUpRight, ArrowDownRight, HeartPulse, Sprout, CreditCard, FileText,
   Tractor, GraduationCap, Box, Key, Users, BarChart, Banknote, ShieldCheck,
-  Zap, Sparkles, Activity, Clock
+  Zap, Sparkles, Activity, Clock, RotateCw
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { useNavigate } from 'react-router-dom';
@@ -77,6 +77,8 @@ export default function Dashboard() {
   const [data, setData] = useState<any>(DEFAULT_DASHBOARD_DATA);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isOffline, setIsOffline] = useState(false);
 
   // Time-aware greeting
@@ -87,31 +89,29 @@ export default function Dashboard() {
     return 'Good evening';
   };
 
+  const fetchDashboard = async (force = false) => {
+    if (force) setRefreshing(true);
+    try {
+      const [overview, txs] = await Promise.all([
+        DashboardService.getOverview(activeUid, force),
+        FinanceService.getTransactions(activeUid, force)
+      ]);
+      setData(overview);
+      setRecentTransactions(txs.slice(0, 4));
+      setLastUpdated(new Date());
+      setIsOffline(false);
+    } catch (e) {
+      console.warn('Dashboard Firestore fetch error, using default overview data:', e);
+      setData(DEFAULT_DASHBOARD_DATA);
+      setIsOffline(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const fetchDashboard = async () => {
-      try {
-        const [overview, txs] = await Promise.all([
-          DashboardService.getOverview(activeUid),
-          FinanceService.getTransactions(activeUid)
-        ]);
-        if (isMounted) {
-          setData(overview);
-          setRecentTransactions(txs.slice(0, 4));
-          setIsOffline(false);
-        }
-      } catch (e) {
-        console.warn('Dashboard Firestore fetch error, using default overview data:', e);
-        if (isMounted) {
-          setData(DEFAULT_DASHBOARD_DATA);
-          setIsOffline(true);
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetchDashboard();
-    return () => { isMounted = false; };
+    fetchDashboard(false);
   }, [user]);
 
   const { finance, actionRequired, domainSnapshots, aiSuggestions = [] } = data || DEFAULT_DASHBOARD_DATA;
@@ -259,11 +259,26 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 pb-10">
-      {/* Greeting Header — Balanced slightly bigger */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-textMain">
-          {getGreeting()}, {user?.name?.split(' ')[0] || 'Aravindh'}
-        </h1>
+      {/* Greeting Header & Live Sync Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-textMain">
+            {getGreeting()}, {user?.name?.split(' ')[0] || 'Aravindh'}
+          </h1>
+          <p className="text-xs text-textMuted flex items-center gap-1.5 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Updated {lastUpdated ? 'just now' : 'live'}</span>
+          </p>
+        </div>
+        <button
+          onClick={() => fetchDashboard(true)}
+          disabled={refreshing}
+          className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-glass hover:bg-surfaceLight transition-colors text-xs font-medium text-textMain cursor-pointer disabled:opacity-50"
+          title="Manually refresh dashboard cache"
+        >
+          <RotateCw size={13} className={refreshing ? 'animate-spin text-primary' : 'text-textMuted'} />
+          <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+        </button>
       </div>
 
       {/* Summary Cards: Clean, responsive, comfortable sizing */}

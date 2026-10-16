@@ -7,7 +7,9 @@
   "scripts": {
     "start": "tsx server.ts",
     "dev": "tsx watch server.ts",
-    "test": "tsx test/calculations.test.ts"
+    "test": "tsx test/calculations.test.ts",
+    "test:security": "tsx test/security-rules.test.ts",
+    "test:all": "tsx test/calculations.test.ts && tsx test/security-rules.test.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

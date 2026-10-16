@@ -207,7 +207,7 @@ export default function GlobalReports() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       <MobilePageHeader
         title="Global Analytics & Reports"
         parentLabel="Dashboard"
@@ -220,7 +220,7 @@ export default function GlobalReports() {
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex bg-surface border border-glass rounded-xl p-0.5 text-xs font-semibold overflow-x-auto max-w-full">
+            <div className="flex bg-surface border border-glass rounded-xl p-0.5 text-xs font-semibold overflow-x-auto max-w-full scrollbar-none">
               {[
                 { id: '7d', label: '7D' },
                 { id: '30d', label: '30D' },
@@ -251,7 +251,7 @@ export default function GlobalReports() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0">
         <div className="glass-panel p-5 border-l-4 border-l-primary flex flex-col justify-between">
           <p className="text-xs text-textMuted uppercase font-semibold">Period Net Cashflow</p>
           <div className="mt-2 flex items-baseline justify-between">
@@ -294,9 +294,9 @@ export default function GlobalReports() {
       </div>
 
       {/* Row 2: Cashflow Trend and Expense Distribution Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
         {/* Cashflow Trend Chart */}
-        <div className="glass-panel p-6 h-[380px] flex flex-col">
+        <div className="glass-panel p-6 h-[380px] flex flex-col min-w-0 overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Activity className="text-primary" size={20} />
@@ -305,7 +305,7 @@ export default function GlobalReports() {
             <span className="text-xs text-textMuted">Ledger transactions</span>
           </div>
 
-          <div className="flex-1 w-full h-full">
+          <div className="flex-1 w-full h-full min-w-0 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendData} margin={{ top: 5, right: 15, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
@@ -325,7 +325,7 @@ export default function GlobalReports() {
         </div>
 
         {/* Expense Distribution Pie Chart */}
-        <div className="glass-panel p-6 h-[380px] flex flex-col">
+        <div className="glass-panel p-6 h-[380px] flex flex-col min-w-0 overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <PieChartIcon className="text-primary" size={20} />
@@ -334,7 +334,7 @@ export default function GlobalReports() {
             <span className="text-xs text-textMuted">{pieData.length} categories</span>
           </div>
 
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center min-w-0 overflow-hidden">
             {pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -369,7 +369,7 @@ export default function GlobalReports() {
       </div>
 
       {/* Row 3: Liabilities Overview Bar Chart */}
-      <div className="glass-panel p-6 h-[360px] flex flex-col">
+      <div className="glass-panel p-6 h-[360px] flex flex-col min-w-0 overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Banknote className="text-red-400" size={20} />
@@ -378,7 +378,7 @@ export default function GlobalReports() {
           <span className="text-xs text-textMuted">Active borrowing</span>
         </div>
 
-        <div className="flex-1 w-full h-full">
+        <div className="flex-1 w-full h-full min-w-0 overflow-hidden">
           {loanBarData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={loanBarData} margin={{ top: 15, right: 25, left: 15, bottom: 5 }}>
@@ -404,7 +404,7 @@ export default function GlobalReports() {
       </div>
 
       {/* Row 4: Multi-Domain Health Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 min-w-0">
         {/* Vehicles */}
         <div className="glass-panel p-5 space-y-3">
           <div className="flex items-center justify-between">

@@ -304,7 +304,7 @@ export default function MedicineReminder() {
 
       {/* Subsections & Tabs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1 w-full sm:w-auto">
+        <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1 w-full sm:w-auto scrollbar-none">
           {[
             { key: 'active', label: `Active Routine (${activeMedicines.length})` },
             { key: 'low_stock', label: `Low Stock (${lowStockMedicines.length})` },

@@ -31,10 +31,20 @@ import {
   calculateDairyExpenses,
   isBillOverdue
 } from '../utils/calculations';
+import { queryCache, CACHE_TTL } from './queryCache';
 
 // Helper to resolve the authenticated user ID
 export function getActiveUserId(fallback?: string): string {
   return auth.currentUser?.uid || fallback || 'guest_user';
+}
+
+// Invalidate cache for a specific user domain, plus optional related domains (e.g. dashboard, reports, finance)
+export function invalidateDomain(userId: string, domain: string, extras: string[] = []) {
+  const uid = userId || getActiveUserId();
+  queryCache.invalidate(`${uid}:${domain}`);
+  for (const extra of extras) {
+    queryCache.invalidate(`${uid}:${extra}`);
+  }
 }
 
 // Convert Firestore document snapshot to typed object with _id for backwards compatibility
@@ -84,22 +94,25 @@ export function safeIsoDate(val: any, fallback = new Date().toISOString()): stri
 // 1. FINANCE / TRANSACTIONS
 // ==========================================
 export const FinanceService = {
-  async getTransactions(userId: string) {
-    try {
-      const q = query(
-        collection(db, 'transactions'),
-        where('userId', '==', userId),
-        orderBy('date', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(snapToData);
-    } catch {
-      // Fallback query if composite index is pending
-      const q = query(collection(db, 'transactions'), where('userId', '==', userId));
-      const snapshot = await getDocs(q);
-      const items = snapshot.docs.map(snapToData);
-      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-    }
+  async getTransactions(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'finance', 'transactions');
+    return queryCache.fetch(key, async () => {
+      try {
+        const q = query(
+          collection(db, 'transactions'),
+          where('userId', '==', userId),
+          orderBy('date', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(snapToData);
+      } catch {
+        // Fallback query if composite index is pending
+        const q = query(collection(db, 'transactions'), where('userId', '==', userId));
+        const snapshot = await getDocs(q);
+        const items = snapshot.docs.map(snapToData);
+        return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+      }
+    }, CACHE_TTL.TRANSACTIONS, forceRefresh);
   },
 
   async addTransaction(userId: string, data: any) {
@@ -111,34 +124,42 @@ export const FinanceService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'finance', ['dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateTransaction(id: string, data: any) {
+  async updateTransaction(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'transactions', id);
     const updateData: any = { ...data, updatedAt: serverTimestamp() };
     if (data.amount !== undefined) {
       updateData.amount = Number(data.amount) || 0;
     }
     await updateDoc(docRef, cleanPayload(updateData));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'finance', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteTransaction(id: string) {
+  async deleteTransaction(id: string, userId?: string) {
     await deleteDoc(doc(db, 'transactions', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'finance', ['dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
-  async getSummary(userId: string) {
-    const transactions = await this.getTransactions(userId);
+  async getSummary(userId: string, forceRefresh = false) {
+    const transactions = await this.getTransactions(userId, forceRefresh);
     return calculateFinanceSummary(transactions);
   },
 
   // Accounts & Wallets
-  async getAccounts(userId: string) {
-    const q = query(collection(db, 'accounts'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getAccounts(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'finance', 'accounts');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'accounts'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.TRANSACTIONS, forceRefresh);
   },
 
   async addAccount(userId: string, data: any) {
@@ -149,21 +170,26 @@ export const FinanceService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'finance', ['dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateAccount(id: string, data: any) {
+  async updateAccount(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'accounts', id);
     const updateData: any = { ...data, updatedAt: serverTimestamp() };
     if (data.balance !== undefined) {
       updateData.balance = Number(data.balance) || 0;
     }
     await updateDoc(docRef, cleanPayload(updateData));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'finance', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteAccount(id: string) {
+  async deleteAccount(id: string, userId?: string) {
     await deleteDoc(doc(db, 'accounts', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'finance', ['dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
@@ -215,14 +241,18 @@ export const FinanceService = {
       }
     }
 
+    invalidateDomain(userId, 'finance', ['dashboard', 'reports']);
     return { _id: txRef.id, id: txRef.id, ...data };
   },
 
   // Budgets
-  async getBudgets(userId: string) {
-    const q = query(collection(db, 'budgets'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getBudgets(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'finance', 'budgets');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'budgets'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.TRANSACTIONS, forceRefresh);
   },
 
   async setBudget(userId: string, category: string, amount: number) {
@@ -230,10 +260,11 @@ export const FinanceService = {
     const snapshot = await getDocs(q);
     const amt = Number(amount) || 0;
 
+    let res: any;
     if (!snapshot.empty) {
       const docRef = doc(db, 'budgets', snapshot.docs[0].id);
       await updateDoc(docRef, { amount: amt, updatedAt: serverTimestamp() });
-      return { id: snapshot.docs[0].id, userId, category, amount: amt };
+      res = { id: snapshot.docs[0].id, userId, category, amount: amt };
     } else {
       const docRef = await addDoc(collection(db, 'budgets'), {
         userId,
@@ -242,8 +273,10 @@ export const FinanceService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      return { id: docRef.id, userId, category, amount: amt };
+      res = { id: docRef.id, userId, category, amount: amt };
     }
+    invalidateDomain(userId, 'finance', ['dashboard', 'reports']);
+    return res;
   }
 };
 
@@ -251,10 +284,13 @@ export const FinanceService = {
 // 2. LOANS
 // ==========================================
 export const LoanService = {
-  async getLoans(userId: string) {
-    const q = query(collection(db, 'loans'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getLoans(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'loans', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'loans'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.LOANS, forceRefresh);
   },
 
   async addLoan(userId: string, data: any) {
@@ -268,16 +304,19 @@ export const LoanService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'loans', ['dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateLoan(id: string, data: any) {
+  async updateLoan(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'loans', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'loans', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteLoan(id: string) {
+  async deleteLoan(id: string, userId?: string) {
     await deleteDoc(doc(db, 'loans', id));
     // Cascade delete linked loan transactions
     const q = query(collection(db, 'transactions'), where('referenceId', '>=', id), where('referenceId', '<=', `${id}\uf8ff`));
@@ -285,6 +324,8 @@ export const LoanService = {
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'loans', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
@@ -306,6 +347,7 @@ export const LoanService = {
       const batch = writeBatch(db);
       snaps.forEach(d => batch.delete(d.ref));
       await batch.commit();
+      invalidateDomain(loan.userId, 'loans', ['finance', 'dashboard', 'reports']);
       return { ...loan, paidMonths: updatedMonths, _id: id };
     } else {
       const updatedMonths = [...paidMonths, monthString];
@@ -322,6 +364,7 @@ export const LoanService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      invalidateDomain(loan.userId, 'loans', ['finance', 'dashboard', 'reports']);
       return { ...loan, paidMonths: updatedMonths, _id: id };
     }
   }
@@ -331,10 +374,13 @@ export const LoanService = {
 // 3. AGRICULTURE (CROPS)
 // ==========================================
 export const AgricultureService = {
-  async getCrops(userId: string) {
-    const q = query(collection(db, 'crops'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getCrops(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'agriculture', 'crops');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'crops'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.AGRICULTURE, forceRefresh);
   },
 
   async syncCropFinance(userId: string, cropId: string, crop: any) {
@@ -389,6 +435,7 @@ export const AgricultureService = {
       updatedAt: serverTimestamp()
     });
     await this.syncCropFinance(userId, docRef.id, data);
+    invalidateDomain(userId, 'agriculture', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
@@ -396,24 +443,30 @@ export const AgricultureService = {
     const docRef = doc(db, 'crops', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     await this.syncCropFinance(userId, id, data);
+    invalidateDomain(userId, 'agriculture', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteCrop(id: string) {
+  async deleteCrop(id: string, userId?: string) {
     await deleteDoc(doc(db, 'crops', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'agriculture', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
   // Farms and Land Parcels
-  async getFarms(userId: string) {
-    const q = query(collection(db, 'farms'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getFarms(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'agriculture', 'farms');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'farms'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.AGRICULTURE, forceRefresh);
   },
 
   async addFarm(userId: string, data: any) {
@@ -424,30 +477,39 @@ export const AgricultureService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'agriculture', ['dashboard']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateFarm(id: string, data: any) {
+  async updateFarm(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'farms', id);
     const updateData: any = { ...data, updatedAt: serverTimestamp() };
     if (data.acreage !== undefined) {
       updateData.acreage = Number(data.acreage) || 0;
     }
     await updateDoc(docRef, cleanPayload(updateData));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'agriculture', ['dashboard']);
     return { ...data, _id: id, id };
   },
 
-  async deleteFarm(id: string) {
+  async deleteFarm(id: string, userId?: string) {
     await deleteDoc(doc(db, 'farms', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'agriculture', ['dashboard']);
     return { message: 'Deleted' };
   },
 
   // Field & Crop Activities
-  async getCropActivities(cropId: string) {
-    const q = query(collection(db, 'crop_activities'), where('cropId', '==', cropId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  async getCropActivities(cropId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'agriculture', `activities_${cropId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'crop_activities'), where('cropId', '==', cropId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.AGRICULTURE, forceRefresh);
   },
 
   async addCropActivity(cropId: string, data: any, userId: string) {
@@ -474,11 +536,28 @@ export const AgricultureService = {
       });
     }
 
+    invalidateDomain(userId, 'agriculture', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteCropActivity(id: string) {
+  async updateCropActivity(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'crop_activities', id);
+    const cost = Number(data.cost) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      cost,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'agriculture', ['finance', 'dashboard', 'reports']);
+    return { ...data, cost, _id: id, id };
+  },
+
+  async deleteCropActivity(id: string, userId?: string) {
     await deleteDoc(doc(db, 'crop_activities', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'agriculture', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   }
 };
@@ -487,10 +566,13 @@ export const AgricultureService = {
 // 4. DAIRY MANAGEMENT
 // ==========================================
 export const DairyService = {
-  async getCows(userId: string) {
-    const q = query(collection(db, 'cows'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getCows(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'dairy', 'cows');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'cows'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
   async addCow(userId: string, data: any) {
@@ -520,17 +602,22 @@ export const DairyService = {
       });
     }
 
+    invalidateDomain(userId, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateCow(id: string, data: any) {
+  async updateCow(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'cows', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteCow(id: string) {
+  async deleteCow(id: string, userId?: string) {
     await deleteDoc(doc(db, 'cows', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
@@ -561,6 +648,7 @@ export const DairyService = {
         createdAt: serverTimestamp()
       });
     }
+    invalidateDomain(cow.userId, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...cow, expenseLogs, _id: id };
   },
 
@@ -586,13 +674,17 @@ export const DairyService = {
         createdAt: serverTimestamp()
       });
     }
+    invalidateDomain(cow.userId, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...cow, status: 'sold', salePrice, saleDate, _id: id };
   },
 
-  async getLogs(userId: string) {
-    const q = query(collection(db, 'dairy_logs'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  async getLogs(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'dairy', 'logs');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'dairy_logs'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
   async addLog(userId: string, data: any) {
@@ -624,10 +716,11 @@ export const DairyService = {
       });
     }
 
+    invalidateDomain(userId, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...data, soldAmount, _id: docRef.id, id: docRef.id };
   },
 
-  async updateLog(id: string, data: any) {
+  async updateLog(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'dairy_logs', id);
     const litersProduced = Number(data.litersProduced) || 0;
     const ratePerLiter = Number(data.ratePerLiter) || 0;
@@ -645,23 +738,30 @@ export const DairyService = {
       });
     });
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...data, litersProduced, ratePerLiter, soldAmount, _id: id, id };
   },
 
-  async deleteLog(id: string) {
+  async deleteLog(id: string, userId?: string) {
     await deleteDoc(doc(db, 'dairy_logs', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
-  async getFeed(userId: string) {
-    const q = query(collection(db, 'farm_feed'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getFeed(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'dairy', 'feed');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'farm_feed'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
   async addFeed(userId: string, data: any) {
@@ -689,32 +789,56 @@ export const DairyService = {
       });
     }
 
+    invalidateDomain(userId, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteFeed(id: string) {
+  async updateFeed(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'farm_feed', id);
+    const amount = Number(data.amount) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      amount,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['finance', 'dashboard', 'reports']);
+    return { ...data, amount, _id: id, id };
+  },
+
+  async deleteFeed(id: string, userId?: string) {
     await deleteDoc(doc(db, 'farm_feed', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
   // Veterinary, Vaccination & Medical Logs
-  async getVetRecords(cowId: string) {
-    const q = query(collection(db, 'dairy_vet_records'), where('cowId', '==', cowId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  async getVetRecords(cowId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'dairy', `vet_${cowId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'dairy_vet_records'), where('cowId', '==', cowId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
-  async getAllVetRecords(userId: string) {
-    const q = query(collection(db, 'dairy_vet_records'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  async getAllVetRecords(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'dairy', 'all_vet');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'dairy_vet_records'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
   async addVetRecord(cowId: string, data: any, userId: string) {
@@ -741,32 +865,56 @@ export const DairyService = {
       });
     }
 
+    invalidateDomain(userId, 'dairy', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteVetRecord(id: string) {
+  async updateVetRecord(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'dairy_vet_records', id);
+    const cost = Number(data.cost) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      cost,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['finance', 'dashboard', 'reports']);
+    return { ...data, cost, _id: id, id };
+  },
+
+  async deleteVetRecord(id: string, userId?: string) {
     await deleteDoc(doc(db, 'dairy_vet_records', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
   // Breeding & Calving Records
-  async getBreedingRecords(cowId: string) {
-    const q = query(collection(db, 'dairy_breeding'), where('cowId', '==', cowId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.inseminationDate || 0).getTime() - new Date(a.inseminationDate || 0).getTime());
+  async getBreedingRecords(cowId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'dairy', `breeding_${cowId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'dairy_breeding'), where('cowId', '==', cowId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.inseminationDate || 0).getTime() - new Date(a.inseminationDate || 0).getTime());
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
-  async getAllBreedingRecords(userId: string) {
-    const q = query(collection(db, 'dairy_breeding'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.inseminationDate || 0).getTime() - new Date(a.inseminationDate || 0).getTime());
+  async getAllBreedingRecords(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'dairy', 'all_breeding');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'dairy_breeding'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.inseminationDate || 0).getTime() - new Date(a.inseminationDate || 0).getTime());
+    }, CACHE_TTL.DAIRY, forceRefresh);
   },
 
   async addBreedingRecord(cowId: string, data: any, userId: string) {
@@ -777,11 +925,25 @@ export const DairyService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'dairy');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteBreedingRecord(id: string) {
+  async updateBreedingRecord(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'dairy_breeding', id);
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      updatedAt: serverTimestamp()
+    }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy');
+    return { ...data, _id: id, id };
+  },
+
+  async deleteBreedingRecord(id: string, userId?: string) {
     await deleteDoc(doc(db, 'dairy_breeding', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'dairy');
     return { message: 'Deleted' };
   }
 };
@@ -790,21 +952,24 @@ export const DairyService = {
 // 5. MEDICINES
 // ==========================================
 export const MedicineService = {
-  async getMedicines(userId: string) {
-    const q = query(collection(db, 'medicines'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  async getMedicines(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'medicine', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'medicines'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const medicines = snapshot.docs.map(snapToData);
-    // Non-destructively advance expired courses without deleting
-    for (const med of medicines) {
-      if (med.endDate && new Date(med.endDate) < today && !med.isCompleted) {
-        await updateDoc(doc(db, 'medicines', med._id), { isCompleted: true, updatedAt: serverTimestamp() });
-        med.isCompleted = true;
+      const medicines = snapshot.docs.map(snapToData);
+      // Non-destructively advance expired courses without deleting
+      for (const med of medicines) {
+        if (med.endDate && new Date(med.endDate) < today && !med.isCompleted) {
+          await updateDoc(doc(db, 'medicines', med._id), { isCompleted: true, updatedAt: serverTimestamp() });
+          med.isCompleted = true;
+        }
       }
-    }
-    return medicines;
+      return medicines;
+    }, CACHE_TTL.HEALTH, forceRefresh);
   },
 
   async addMedicine(userId: string, data: any) {
@@ -815,21 +980,26 @@ export const MedicineService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'medicine', ['dashboard']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateMedicine(id: string, data: any) {
+  async updateMedicine(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'medicines', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'medicine', ['dashboard']);
     return { ...data, _id: id, id };
   },
 
-  async deleteMedicine(id: string) {
+  async deleteMedicine(id: string, userId?: string) {
     await deleteDoc(doc(db, 'medicines', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'medicine', ['dashboard']);
     return { message: 'Deleted' };
   },
 
-  async logDose(id: string, status: 'taken' | 'skipped', timeSlot: string) {
+  async logDose(id: string, status: 'taken' | 'skipped', timeSlot: string, userId?: string) {
     const docRef = doc(db, 'medicines', id);
     const snap = await getDoc(docRef);
     if (!snap.exists()) throw new Error('Medicine not found');
@@ -845,10 +1015,12 @@ export const MedicineService = {
       newStock -= 1;
     }
     await updateDoc(docRef, { doseLogs, stock: newStock, updatedAt: serverTimestamp() });
+    const uid = userId || med.userId || getActiveUserId();
+    invalidateDomain(uid, 'medicine', ['dashboard']);
     return { ...med, doseLogs, stock: newStock, _id: id, id };
   },
 
-  async refillStock(id: string, count: number) {
+  async refillStock(id: string, count: number, userId?: string) {
     const docRef = doc(db, 'medicines', id);
     const snap = await getDoc(docRef);
     if (!snap.exists()) throw new Error('Medicine not found');
@@ -856,6 +1028,8 @@ export const MedicineService = {
     const currentStock = Number(med.stock) || 0;
     const newStock = currentStock + count;
     await updateDoc(docRef, { stock: newStock, updatedAt: serverTimestamp() });
+    const uid = userId || med.userId || getActiveUserId();
+    invalidateDomain(uid, 'medicine', ['dashboard']);
     return { ...med, stock: newStock, _id: id, id };
   }
 };
@@ -864,10 +1038,13 @@ export const MedicineService = {
 // 6. BILLS & UTILITIES
 // ==========================================
 export const BillService = {
-  async getBills(userId: string) {
-    const q = query(collection(db, 'bills'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData).sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime());
+  async getBills(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'bills', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'bills'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData).sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime());
+    }, CACHE_TTL.BILLS, forceRefresh);
   },
 
   async addBill(userId: string, data: any) {
@@ -879,22 +1056,27 @@ export const BillService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'bills', ['dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateBill(id: string, data: any) {
+  async updateBill(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'bills', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'bills', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteBill(id: string) {
+  async deleteBill(id: string, userId?: string) {
     await deleteDoc(doc(db, 'bills', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'bills', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
@@ -921,6 +1103,7 @@ export const BillService = {
       snaps.forEach(d => batch.delete(d.ref));
       await batch.commit();
     }
+    invalidateDomain(billData.userId, 'bills', ['finance', 'dashboard', 'reports']);
   }
 };
 
@@ -928,10 +1111,13 @@ export const BillService = {
 // 7. DIGITAL LOCKER (DOCUMENTS)
 // ==========================================
 export const DocumentService = {
-  async getDocuments(userId: string) {
-    const q = query(collection(db, 'documents'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getDocuments(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'documents', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'documents'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.DOCUMENTS, forceRefresh);
   },
 
   async addDocument(userId: string, data: any) {
@@ -941,17 +1127,22 @@ export const DocumentService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'documents');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateDocument(id: string, data: any) {
+  async updateDocument(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'documents', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'documents');
     return { ...data, _id: id, id };
   },
 
-  async deleteDocument(id: string) {
+  async deleteDocument(id: string, userId?: string) {
     await deleteDoc(doc(db, 'documents', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'documents');
     return { message: 'Deleted' };
   }
 };
@@ -960,10 +1151,13 @@ export const DocumentService = {
 // 8. EMERGENCY CONTACTS
 // ==========================================
 export const ContactService = {
-  async getContacts(userId: string) {
-    const q = query(collection(db, 'contacts'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData).sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0));
+  async getContacts(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'contacts', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'contacts'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData).sort((a, b) => (b.isEmergency ? 1 : 0) - (a.isEmergency ? 1 : 0));
+    }, CACHE_TTL.CONTACTS, forceRefresh);
   },
 
   async addContact(userId: string, data: any) {
@@ -973,17 +1167,22 @@ export const ContactService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'contacts');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateContact(id: string, data: any) {
+  async updateContact(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'contacts', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'contacts');
     return { ...data, _id: id, id };
   },
 
-  async deleteContact(id: string) {
+  async deleteContact(id: string, userId?: string) {
     await deleteDoc(doc(db, 'contacts', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'contacts');
     return { message: 'Deleted' };
   }
 };
@@ -992,10 +1191,13 @@ export const ContactService = {
 // 9. TASKS & PLANNER
 // ==========================================
 export const TaskService = {
-  async getTasks(userId: string) {
-    const q = query(collection(db, 'tasks'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getTasks(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'tasks', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'tasks'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.TASKS, forceRefresh);
   },
 
   async addTask(userId: string, data: any) {
@@ -1006,17 +1208,22 @@ export const TaskService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'tasks', ['dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateTask(id: string, data: any) {
+  async updateTask(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'tasks', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'tasks', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteTask(id: string) {
+  async deleteTask(id: string, userId?: string) {
     await deleteDoc(doc(db, 'tasks', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'tasks', ['dashboard', 'reports']);
     return { message: 'Deleted' };
   }
 };
@@ -1025,10 +1232,13 @@ export const TaskService = {
 // 10. VEHICLES
 // ==========================================
 export const VehicleService = {
-  async getVehicles(userId: string) {
-    const q = query(collection(db, 'vehicles'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getVehicles(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'vehicles', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'vehicles'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.VEHICLES, forceRefresh);
   },
 
   async addVehicle(userId: string, data: any) {
@@ -1039,22 +1249,27 @@ export const VehicleService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'vehicles', ['dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateVehicle(id: string, data: any) {
+  async updateVehicle(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'vehicles', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteVehicle(id: string) {
+  async deleteVehicle(id: string, userId?: string) {
     await deleteDoc(doc(db, 'vehicles', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
@@ -1086,15 +1301,20 @@ export const VehicleService = {
         createdAt: serverTimestamp()
       });
     }
+    invalidateDomain(vehicle.userId, 'vehicles', ['finance', 'dashboard', 'reports']);
     return { ...vehicle, logs, _id: id };
   },
 
   // Dedicated Fuel Logs with Mileage Tracking
-  async getFuelLogs(vehicleId: string) {
-    const q = query(collection(db, 'vehicle_fuel_logs'), where('vehicleId', '==', vehicleId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  async getFuelLogs(vehicleId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'vehicles', `fuel_${vehicleId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'vehicle_fuel_logs'), where('vehicleId', '==', vehicleId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.VEHICLES, forceRefresh);
   },
 
   async addFuelLog(vehicleId: string, data: any, userId: string) {
@@ -1124,25 +1344,62 @@ export const VehicleService = {
       });
     }
 
+    invalidateDomain(userId, 'vehicles', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteFuelLog(id: string) {
+  async updateFuelLog(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'vehicle_fuel_logs', id);
+    const cost = Number(data.cost) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      odometer: Number(data.odometer) || 0,
+      liters: Number(data.liters) || 0,
+      pricePerLiter: Number(data.pricePerLiter) || 0,
+      cost,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+
+    const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
+    const snaps = await getDocs(q);
+    const batch = writeBatch(db);
+    snaps.forEach(d => {
+      batch.update(d.ref, {
+        amount: cost,
+        title: `Vehicle Fuel - ${data.vehicleName || 'Vehicle'} (${data.liters || 0}L)`,
+        date: safeIsoDate(data.date)
+      });
+    });
+    await batch.commit();
+
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { ...data, cost, _id: id, id };
+  },
+
+  async deleteFuelLog(id: string, userId?: string) {
     await deleteDoc(doc(db, 'vehicle_fuel_logs', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
 
   // Dedicated Maintenance & Service Logs
-  async getServiceLogs(vehicleId: string) {
-    const q = query(collection(db, 'vehicle_service_logs'), where('vehicleId', '==', vehicleId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  async getServiceLogs(vehicleId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'vehicles', `service_${vehicleId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'vehicle_service_logs'), where('vehicleId', '==', vehicleId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.VEHICLES, forceRefresh);
   },
 
   async addServiceLog(vehicleId: string, data: any, userId: string) {
@@ -1170,16 +1427,247 @@ export const VehicleService = {
       });
     }
 
+    invalidateDomain(userId, 'vehicles', ['finance', 'dashboard', 'reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteServiceLog(id: string) {
+  async updateServiceLog(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'vehicle_service_logs', id);
+    const cost = Number(data.cost) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      cost,
+      odometer: Number(data.odometer) || 0,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+
+    const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
+    const snaps = await getDocs(q);
+    const batch = writeBatch(db);
+    snaps.forEach(d => {
+      batch.update(d.ref, {
+        amount: cost,
+        title: `Vehicle Service - ${data.vehicleName || 'Vehicle'} (${data.serviceType || 'Maintenance'})`,
+        date: safeIsoDate(data.date)
+      });
+    });
+    await batch.commit();
+
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { ...data, cost, _id: id, id };
+  },
+
+  async deleteServiceLog(id: string, userId?: string) {
     await deleteDoc(doc(db, 'vehicle_service_logs', id));
     const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
     const snaps = await getDocs(q);
     const batch = writeBatch(db);
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { message: 'Deleted' };
+  },
+
+  // Dedicated Vehicle Repairs & Spare Parts
+  async getVehicleRepairs(vehicleId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'vehicles', `repair_${vehicleId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'vehicle_repairs'), where('vehicleId', '==', vehicleId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.VEHICLES, forceRefresh);
+  },
+
+  async addVehicleRepair(vehicleId: string, data: any, userId: string) {
+    const cost = Number(data.cost) || 0;
+    const docRef = await addDoc(collection(db, 'vehicle_repairs'), {
+      ...data,
+      vehicleId,
+      userId,
+      cost,
+      date: safeIsoDate(data.date),
+      createdAt: serverTimestamp()
+    });
+
+    if (cost > 0) {
+      await addDoc(collection(db, 'transactions'), {
+        userId,
+        type: 'expense',
+        amount: cost,
+        category: 'Transport',
+        title: `Vehicle Repair - ${data.vehicleName || 'Vehicle'} (${data.partName || 'Repairs'})`,
+        referenceId: docRef.id,
+        date: safeIsoDate(data.date),
+        createdAt: serverTimestamp()
+      });
+    }
+
+    invalidateDomain(userId, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { ...data, _id: docRef.id, id: docRef.id };
+  },
+
+  async updateVehicleRepair(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'vehicle_repairs', id);
+    const cost = Number(data.cost) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      cost,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+
+    const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
+    const snaps = await getDocs(q);
+    const batch = writeBatch(db);
+    snaps.forEach(d => {
+      batch.update(d.ref, {
+        amount: cost,
+        title: `Vehicle Repair - ${data.vehicleName || 'Vehicle'} (${data.partName || 'Repairs'})`,
+        date: safeIsoDate(data.date)
+      });
+    });
+    await batch.commit();
+
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { ...data, cost, _id: id, id };
+  },
+
+  async deleteVehicleRepair(id: string, userId?: string) {
+    await deleteDoc(doc(db, 'vehicle_repairs', id));
+    const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
+    const snaps = await getDocs(q);
+    const batch = writeBatch(db);
+    snaps.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { message: 'Deleted' };
+  },
+
+  // Dedicated Vehicle Expenses (Toll, Fastag, Parking, Fines, Washing)
+  async getVehicleExpenses(vehicleId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'vehicles', `expense_${vehicleId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'vehicle_expenses'), where('vehicleId', '==', vehicleId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }, CACHE_TTL.VEHICLES, forceRefresh);
+  },
+
+  async addVehicleExpense(vehicleId: string, data: any, userId: string) {
+    const amount = Number(data.amount) || 0;
+    const docRef = await addDoc(collection(db, 'vehicle_expenses'), {
+      ...data,
+      vehicleId,
+      userId,
+      amount,
+      date: safeIsoDate(data.date),
+      createdAt: serverTimestamp()
+    });
+
+    if (amount > 0) {
+      await addDoc(collection(db, 'transactions'), {
+        userId,
+        type: 'expense',
+        amount,
+        category: 'Transport',
+        title: `Vehicle Expense - ${data.vehicleName || 'Vehicle'} (${data.expenseType || 'Misc'})`,
+        referenceId: docRef.id,
+        date: safeIsoDate(data.date),
+        createdAt: serverTimestamp()
+      });
+    }
+
+    invalidateDomain(userId, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { ...data, _id: docRef.id, id: docRef.id };
+  },
+
+  async updateVehicleExpense(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'vehicle_expenses', id);
+    const amount = Number(data.amount) || 0;
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      amount,
+      date: safeIsoDate(data.date),
+      updatedAt: serverTimestamp()
+    }));
+
+    const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
+    const snaps = await getDocs(q);
+    const batch = writeBatch(db);
+    snaps.forEach(d => {
+      batch.update(d.ref, {
+        amount,
+        title: `Vehicle Expense - ${data.vehicleName || 'Vehicle'} (${data.expenseType || 'Misc'})`,
+        date: safeIsoDate(data.date)
+      });
+    });
+    await batch.commit();
+
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { ...data, amount, _id: id, id };
+  },
+
+  async deleteVehicleExpense(id: string, userId?: string) {
+    await deleteDoc(doc(db, 'vehicle_expenses', id));
+    const q = query(collection(db, 'transactions'), where('referenceId', '==', id));
+    const snaps = await getDocs(q);
+    const batch = writeBatch(db);
+    snaps.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
+    return { message: 'Deleted' };
+  },
+
+  // Dedicated Vehicle Maintenance Reminders
+  async getVehicleReminders(vehicleId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'vehicles', `reminder_${vehicleId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'vehicle_reminders'), where('vehicleId', '==', vehicleId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime());
+    }, CACHE_TTL.VEHICLES, forceRefresh);
+  },
+
+  async addVehicleReminder(vehicleId: string, data: any, userId: string) {
+    const docRef = await addDoc(collection(db, 'vehicle_reminders'), {
+      ...data,
+      vehicleId,
+      userId,
+      isCompleted: false,
+      createdAt: serverTimestamp()
+    });
+    invalidateDomain(userId, 'vehicles');
+    return { ...data, _id: docRef.id, id: docRef.id };
+  },
+
+  async updateVehicleReminder(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'vehicle_reminders', id);
+    await updateDoc(docRef, cleanPayload({
+      ...data,
+      updatedAt: serverTimestamp()
+    }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles');
+    return { ...data, _id: id, id };
+  },
+
+  async deleteVehicleReminder(id: string, userId?: string) {
+    await deleteDoc(doc(db, 'vehicle_reminders', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'vehicles');
     return { message: 'Deleted' };
   }
 };
@@ -1188,10 +1676,13 @@ export const VehicleService = {
 // 11. STUDENT PLANNER
 // ==========================================
 export const StudentService = {
-  async getItems(userId: string) {
-    const q = query(collection(db, 'student_items'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getItems(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'student', 'items');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'student_items'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.STUDENT, forceRefresh);
   },
 
   async addItem(userId: string, data: any) {
@@ -1202,25 +1693,33 @@ export const StudentService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'student');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateItem(id: string, data: any) {
+  async updateItem(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'student_items', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'student');
     return { ...data, _id: id, id };
   },
 
-  async deleteItem(id: string) {
+  async deleteItem(id: string, userId?: string) {
     await deleteDoc(doc(db, 'student_items', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'student');
     return { message: 'Deleted' };
   },
 
   // Courses / Subjects
-  async getCourses(userId: string) {
-    const q = query(collection(db, 'student_courses'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getCourses(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'student', 'courses');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'student_courses'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.STUDENT, forceRefresh);
   },
 
   async addCourse(userId: string, data: any) {
@@ -1230,25 +1729,33 @@ export const StudentService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'student');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateCourse(id: string, data: any) {
+  async updateCourse(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'student_courses', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'student');
     return { ...data, _id: id, id };
   },
 
-  async deleteCourse(id: string) {
+  async deleteCourse(id: string, userId?: string) {
     await deleteDoc(doc(db, 'student_courses', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'student');
     return { message: 'Deleted' };
   },
 
   // Timetable
-  async getTimetable(userId: string) {
-    const q = query(collection(db, 'student_timetable'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getTimetable(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'student', 'timetable');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'student_timetable'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.STUDENT, forceRefresh);
   },
 
   async addTimetableSlot(userId: string, data: any) {
@@ -1257,11 +1764,22 @@ export const StudentService = {
       userId,
       createdAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'student');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteTimetableSlot(id: string) {
+  async updateTimetableSlot(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'student_timetable', id);
+    await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'student');
+    return { ...data, _id: id, id };
+  },
+
+  async deleteTimetableSlot(id: string, userId?: string) {
     await deleteDoc(doc(db, 'student_timetable', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'student');
     return { message: 'Deleted' };
   }
 };
@@ -1270,10 +1788,13 @@ export const StudentService = {
 // 12. HOME INVENTORY
 // ==========================================
 export const InventoryService = {
-  async getInventory(userId: string) {
-    const q = query(collection(db, 'inventory'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getInventory(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'inventory', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'inventory'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.INVENTORY, forceRefresh);
   },
 
   async addInventory(userId: string, data: any) {
@@ -1285,26 +1806,31 @@ export const InventoryService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'inventory');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateInventory(id: string, data: any) {
+  async updateInventory(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'inventory', id);
     const updateData: any = { ...data, updatedAt: serverTimestamp() };
     if (data.price !== undefined) updateData.price = Number(data.price) || 0;
     if (data.estimatedValue !== undefined) updateData.estimatedValue = Number(data.estimatedValue) || 0;
     await updateDoc(docRef, cleanPayload(updateData));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'inventory');
     return { ...data, _id: id, id };
   },
 
-  async deleteInventory(id: string) {
+  async deleteInventory(id: string, userId?: string) {
     await deleteDoc(doc(db, 'inventory', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'inventory');
     return { message: 'Deleted' };
   }
 };
 
 // ==========================================
-// 13. PASSWORD VAULT
+// 13. PASSWORD VAULT (Direct Encrypted Reads - No Plaintext Caching)
 // ==========================================
 export const PasswordService = {
   async getPasswords(userId: string) {
@@ -1339,10 +1865,13 @@ export const PasswordService = {
 // 14. FAMILY DASHBOARD
 // ==========================================
 export const FamilyService = {
-  async getPosts(userId: string) {
-    const q = query(collection(db, 'family_posts'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getPosts(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'family', 'posts');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'family_posts'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.FAMILY, forceRefresh);
   },
 
   async addPost(userId: string, data: any) {
@@ -1352,24 +1881,32 @@ export const FamilyService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'family');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updatePost(id: string, data: any) {
+  async updatePost(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'family_posts', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { ...data, _id: id, id };
   },
 
-  async deletePost(id: string) {
+  async deletePost(id: string, userId?: string) {
     await deleteDoc(doc(db, 'family_posts', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { message: 'Deleted' };
   },
 
-  async getMembers(userId: string) {
-    const q = query(collection(db, 'family_members'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getMembers(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'family', 'members');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'family_members'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.FAMILY, forceRefresh);
   },
 
   async addMember(userId: string, data: any) {
@@ -1382,25 +1919,33 @@ export const FamilyService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'family');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateMember(id: string, data: any) {
+  async updateMember(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'family_members', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { ...data, _id: id, id };
   },
 
-  async deleteMember(id: string) {
+  async deleteMember(id: string, userId?: string) {
     await deleteDoc(doc(db, 'family_members', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { message: 'Deleted' };
   },
 
   // Chores
-  async getChores(userId: string) {
-    const q = query(collection(db, 'family_chores'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getChores(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'family', 'chores');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'family_chores'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.FAMILY, forceRefresh);
   },
 
   async addChore(userId: string, data: any) {
@@ -1411,25 +1956,33 @@ export const FamilyService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'family');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateChore(id: string, data: any) {
+  async updateChore(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'family_chores', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { ...data, _id: id, id };
   },
 
-  async deleteChore(id: string) {
+  async deleteChore(id: string, userId?: string) {
     await deleteDoc(doc(db, 'family_chores', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { message: 'Deleted' };
   },
 
   // Events / Important Dates
-  async getFamilyEvents(userId: string) {
-    const q = query(collection(db, 'family_events'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getFamilyEvents(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'family', 'events');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'family_events'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.FAMILY, forceRefresh);
   },
 
   async addFamilyEvent(userId: string, data: any) {
@@ -1438,25 +1991,33 @@ export const FamilyService = {
       userId,
       createdAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'family');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateFamilyEvent(id: string, data: any) {
+  async updateFamilyEvent(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'family_events', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { ...data, _id: id, id };
   },
 
-  async deleteFamilyEvent(id: string) {
+  async deleteFamilyEvent(id: string, userId?: string) {
     await deleteDoc(doc(db, 'family_events', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { message: 'Deleted' };
   },
 
   // Shared Expenses
-  async getSharedExpenses(userId: string) {
-    const q = query(collection(db, 'family_expenses'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getSharedExpenses(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'family', 'expenses');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'family_expenses'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.FAMILY, forceRefresh);
   },
 
   async addSharedExpense(userId: string, data: any) {
@@ -1468,18 +2029,23 @@ export const FamilyService = {
       date: data.date || new Date().toISOString(),
       createdAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'family');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateSharedExpense(id: string, data: any) {
+  async updateSharedExpense(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'family_expenses', id);
     const amount = Number(data.amount) || 0;
     await updateDoc(docRef, cleanPayload({ ...data, amount, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { ...data, _id: id, id };
   },
 
-  async deleteSharedExpense(id: string) {
+  async deleteSharedExpense(id: string, userId?: string) {
     await deleteDoc(doc(db, 'family_expenses', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'family');
     return { message: 'Deleted' };
   }
 };
@@ -1488,10 +2054,13 @@ export const FamilyService = {
 // 15. HEALTH RECORDS
 // ==========================================
 export const HealthService = {
-  async getRecords(userId: string) {
-    const q = query(collection(db, 'health_records'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getRecords(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'health', 'records');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'health_records'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.HEALTH, forceRefresh);
   },
 
   async addRecord(userId: string, data: any) {
@@ -1501,26 +2070,34 @@ export const HealthService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'health');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateRecord(id: string, data: any) {
+  async updateRecord(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'health_records', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'health');
     return { ...data, _id: id, id };
   },
 
-  async deleteRecord(id: string) {
+  async deleteRecord(id: string, userId?: string) {
     await deleteDoc(doc(db, 'health_records', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'health');
     return { message: 'Deleted' };
   },
 
   // Health Profile
-  async getProfile(userId: string) {
-    const docRef = doc(db, 'health_profile', userId);
-    const snap = await getDoc(docRef);
-    if (!snap.exists()) return null;
-    return snapToData(snap);
+  async getProfile(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'health', 'profile');
+    return queryCache.fetch(key, async () => {
+      const docRef = doc(db, 'health_profile', userId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return null;
+      return snapToData(snap);
+    }, CACHE_TTL.HEALTH, forceRefresh);
   },
 
   async saveProfile(userId: string, data: any) {
@@ -1530,15 +2107,19 @@ export const HealthService = {
       userId,
       updatedAt: serverTimestamp()
     }, { merge: true });
+    invalidateDomain(userId, 'health');
     return { ...data, userId };
   },
 
   // Doctor Consultations & Visits
-  async getVisits(userId: string) {
-    const q = query(collection(db, 'health_visits'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(snapToData);
-    return items.sort((a, b) => new Date(b.visitDate || 0).getTime() - new Date(a.visitDate || 0).getTime());
+  async getVisits(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'health', 'visits');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'health_visits'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      const items = snapshot.docs.map(snapToData);
+      return items.sort((a, b) => new Date(b.visitDate || 0).getTime() - new Date(a.visitDate || 0).getTime());
+    }, CACHE_TTL.HEALTH, forceRefresh);
   },
 
   async addVisit(userId: string, data: any) {
@@ -1548,11 +2129,27 @@ export const HealthService = {
       cost: Number(data.cost) || 0,
       createdAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'health');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async deleteVisit(id: string) {
+  async updateVisit(id: string, data: any, userId?: string) {
+    const docRef = doc(db, 'health_visits', id);
+    const updateData = cleanPayload({
+      ...data,
+      cost: Number(data.cost) || 0,
+      updatedAt: serverTimestamp()
+    });
+    await updateDoc(docRef, updateData);
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'health');
+    return { ...data, _id: id, id };
+  },
+
+  async deleteVisit(id: string, userId?: string) {
     await deleteDoc(doc(db, 'health_visits', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'health');
     return { message: 'Deleted' };
   }
 };
@@ -1561,10 +2158,13 @@ export const HealthService = {
 // 16. GOAL TRACKER
 // ==========================================
 export const GoalService = {
-  async getGoals(userId: string) {
-    const q = query(collection(db, 'goals'), where('userId', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getGoals(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'goals', 'all');
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'goals'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.GOALS, forceRefresh);
   },
 
   async addGoal(userId: string, data: any) {
@@ -1578,25 +2178,34 @@ export const GoalService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'goals', ['reports']);
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async updateGoal(id: string, data: any) {
+  async updateGoal(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'goals', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'goals', ['reports']);
     return { ...data, _id: id, id };
   },
 
-  async deleteGoal(id: string) {
+  async deleteGoal(id: string, userId?: string) {
     await deleteDoc(doc(db, 'goals', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'goals', ['reports']);
     return { message: 'Deleted' };
   },
 
   // Milestones
-  async getMilestones(goalId: string) {
-    const q = query(collection(db, 'goal_milestones'), where('goalId', '==', goalId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(snapToData);
+  async getMilestones(goalId: string, userId?: string, forceRefresh = false) {
+    const uid = userId || getActiveUserId();
+    const key = queryCache.makeKey(uid, 'goals', `milestones_${goalId}`);
+    return queryCache.fetch(key, async () => {
+      const q = query(collection(db, 'goal_milestones'), where('goalId', '==', goalId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(snapToData);
+    }, CACHE_TTL.GOALS, forceRefresh);
   },
 
   async addMilestone(goalId: string, data: any, userId: string) {
@@ -1607,17 +2216,22 @@ export const GoalService = {
       isCompleted: false,
       createdAt: serverTimestamp()
     });
+    invalidateDomain(userId, 'goals');
     return { ...data, _id: docRef.id, id: docRef.id };
   },
 
-  async toggleMilestone(id: string, isCompleted: boolean) {
+  async toggleMilestone(id: string, isCompleted: boolean, userId?: string) {
     const docRef = doc(db, 'goal_milestones', id);
     await updateDoc(docRef, { isCompleted, updatedAt: serverTimestamp() });
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'goals');
     return { id, isCompleted };
   },
 
-  async deleteMilestone(id: string) {
+  async deleteMilestone(id: string, userId?: string) {
     await deleteDoc(doc(db, 'goal_milestones', id));
+    const uid = userId || getActiveUserId();
+    invalidateDomain(uid, 'goals');
     return { message: 'Deleted' };
   }
 };
@@ -1626,153 +2240,268 @@ export const GoalService = {
 // 17. DASHBOARD AGGREGATION ENGINE
 // ==========================================
 export const DashboardService = {
-  async getOverview(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  async getOverview(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'dashboard', 'overview');
+    return queryCache.fetch(key, async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Fetch collections concurrently from Firestore
-    const [transactions, bills, medicines, tasks, cows, crops, vehicles, loans] = await Promise.all([
-      FinanceService.getTransactions(userId),
-      BillService.getBills(userId),
-      MedicineService.getMedicines(userId),
-      TaskService.getTasks(userId),
-      DairyService.getCows(userId),
-      AgricultureService.getCrops(userId),
-      VehicleService.getVehicles(userId),
-      LoanService.getLoans(userId)
-    ]);
+      // Fetch collections concurrently (in-flight promise deduplication will share active queries)
+      const [transactions, bills, medicines, tasks, cows, crops, vehicles, loans] = await Promise.all([
+        FinanceService.getTransactions(userId, forceRefresh),
+        BillService.getBills(userId, forceRefresh),
+        MedicineService.getMedicines(userId, forceRefresh),
+        TaskService.getTasks(userId, forceRefresh),
+        DairyService.getCows(userId, forceRefresh),
+        AgricultureService.getCrops(userId, forceRefresh),
+        VehicleService.getVehicles(userId, forceRefresh),
+        LoanService.getLoans(userId, forceRefresh)
+      ]);
 
-    // Financial calculations
-    const todaysExpense = transactions
-      .filter(t => t.type === 'expense' && new Date(t.date) >= today)
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      // Financial calculations
+      const todaysExpense = transactions
+        .filter(t => t.type === 'expense' && new Date(t.date) >= today)
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-    const monthlyIncome = transactions
-      .filter(t => t.type === 'income' && new Date(t.date) >= startOfMonth)
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const monthlyIncome = transactions
+        .filter(t => t.type === 'income' && new Date(t.date) >= startOfMonth)
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-    const monthlyExpense = transactions
-      .filter(t => t.type === 'expense' && new Date(t.date) >= startOfMonth)
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const monthlyExpense = transactions
+        .filter(t => t.type === 'expense' && new Date(t.date) >= startOfMonth)
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-    const totalIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-    const totalExpense = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const totalExpense = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-    const currentSavings = totalIncome - totalExpense;
-    const budgetStatus = monthlyIncome > 0 ? Math.round((monthlyExpense / monthlyIncome) * 100) : 0;
+      const currentSavings = totalIncome - totalExpense;
+      const budgetStatus = monthlyIncome > 0 ? Math.round((monthlyExpense / monthlyIncome) * 100) : 0;
 
-    // Upcoming Bill
-    const unpaidBills = bills.filter(b => !b.isPaid);
-    const upcomingBill = unpaidBills.length > 0 ? unpaidBills[0] : null;
+      // Upcoming Bill
+      const unpaidBills = bills.filter(b => !b.isPaid);
+      const upcomingBill = unpaidBills.length > 0 ? unpaidBills[0] : null;
 
-    // Medicine Reminder
-    const pendingMedicine = medicines.find(m => !m.isCompleted);
+      // Medicine Reminder
+      const pendingMedicine = medicines.find(m => !m.isCompleted);
 
-    // Vehicle Alert (insurance/PUC/service within 30 days)
-    let vehicleAlert: { message: string } | null = null;
-    const nowTime = today.getTime();
-    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      // Vehicle Alert (insurance/PUC/service within 30 days)
+      let vehicleAlert: { message: string } | null = null;
+      const nowTime = today.getTime();
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-    for (const v of vehicles) {
-      if (v.insuranceExpiry) {
-        const insTime = new Date(v.insuranceExpiry).getTime();
-        if (insTime - nowTime <= thirtyDaysMs && insTime - nowTime >= 0) {
-          vehicleAlert = { message: `${v.name}: Insurance renewal due on ${new Date(v.insuranceExpiry).toLocaleDateString()}` };
-          break;
-        } else if (insTime < nowTime) {
-          vehicleAlert = { message: `${v.name}: Insurance is OVERDUE!` };
-          break;
+      for (const v of vehicles) {
+        if (v.insuranceExpiry) {
+          const insTime = new Date(v.insuranceExpiry).getTime();
+          if (insTime - nowTime <= thirtyDaysMs && insTime - nowTime >= 0) {
+            vehicleAlert = { message: `${v.name}: Insurance renewal due on ${new Date(v.insuranceExpiry).toLocaleDateString()}` };
+            break;
+          } else if (insTime < nowTime) {
+            vehicleAlert = { message: `${v.name}: Insurance is OVERDUE!` };
+            break;
+          }
+        }
+        if (v.pucExpiry) {
+          const pucTime = new Date(v.pucExpiry).getTime();
+          if (pucTime - nowTime <= thirtyDaysMs) {
+            vehicleAlert = { message: `${v.name}: PUC certificate renewal due` };
+            break;
+          }
         }
       }
-      if (v.pucExpiry) {
-        const pucTime = new Date(v.pucExpiry).getTime();
-        if (pucTime - nowTime <= thirtyDaysMs) {
-          vehicleAlert = { message: `${v.name}: PUC certificate renewal due` };
-          break;
-        }
-      }
-    }
 
-    // Pending Tasks
-    const pendingTasksCount = tasks.filter(t => !t.isCompleted).length;
+      // Pending Tasks
+      const pendingTasksCount = tasks.filter(t => !t.isCompleted).length;
 
-    // Daily Milk Production
-    let todaysMilk = 0;
-    cows.forEach(cow => {
-      (cow.productionLogs || []).forEach((log: any) => {
-        if (new Date(log.date) >= today) {
-          todaysMilk += Number(log.litersProduced) || 0;
-        }
+      // Daily Milk Production
+      let todaysMilk = 0;
+      cows.forEach(cow => {
+        (cow.productionLogs || []).forEach((log: any) => {
+          if (new Date(log.date) >= today) {
+            todaysMilk += Number(log.litersProduced) || 0;
+          }
+        });
       });
+
+      // Active Crops
+      const activeCropsCount = crops.filter(c => c.status === 'Planted' || c.status === 'Growing' || c.status === 'Sown').length;
+
+      // Active Loans
+      const totalLoanPrincipal = loans.reduce((acc, curr: any) => acc + (Number(curr.principalAmount) || 0), 0);
+      const totalMonthlyEMI = loans.reduce((acc, curr: any) => acc + (Number(curr.monthlyPay) || 0), 0);
+
+      // AI Suggestions
+      const aiSuggestions: string[] = [];
+      if (monthlyExpense > monthlyIncome && monthlyIncome > 0) {
+        aiSuggestions.push("You've exceeded your monthly income in expenses. Review recent spending in Finance.");
+      } else if (monthlyIncome > 0 && monthlyExpense > monthlyIncome * 0.8) {
+        aiSuggestions.push("You're nearing your monthly income limit. Keep an eye on non-essential expenditures.");
+      } else if (monthlyIncome > 0 && monthlyExpense < monthlyIncome * 0.4) {
+        aiSuggestions.push("Great job managing expenses this month! You are saving a healthy portion of your income.");
+      }
+
+      if (upcomingBill) {
+        aiSuggestions.push(`Don't forget to pay your upcoming bill: ${upcomingBill.name} for ₹${upcomingBill.amount}.`);
+      }
+
+      if (vehicleAlert) {
+        aiSuggestions.push(`Vehicle notice: ${vehicleAlert.message}.`);
+      }
+
+      if (pendingTasksCount > 0) {
+        aiSuggestions.push(`You have ${pendingTasksCount} pending task${pendingTasksCount > 1 ? 's' : ''} to complete today.`);
+      }
+
+      if (activeCropsCount > 0) {
+        aiSuggestions.push(`You have ${activeCropsCount} active crop fields. Verify watering and fertilizer schedules.`);
+      }
+
+      if (aiSuggestions.length === 0) {
+        aiSuggestions.push("All systems optimal! Your finances, tasks, and routines are in sync with Vynora.");
+      }
+
+      return {
+        isOfflineFallback: false,
+        databaseConnected: true,
+        finance: {
+          todaysExpense,
+          monthlyIncome,
+          currentSavings,
+          budgetStatus
+        },
+        actionRequired: {
+          upcomingBill: upcomingBill ? { title: upcomingBill.name, amount: upcomingBill.amount, dueDate: upcomingBill.dueDate } : null,
+          medicine: pendingMedicine ? { name: pendingMedicine.name, dosage: pendingMedicine.dosage, time: pendingMedicine.time } : null,
+          vehicleAlert
+        },
+        domainSnapshots: {
+          milkProduction: todaysMilk,
+          activeCrops: activeCropsCount,
+          pendingTasks: pendingTasksCount,
+          recentActivity: transactions.length + tasks.length,
+          totalLoanPrincipal,
+          totalMonthlyEMI
+        },
+        aiSuggestions
+      };
+    }, CACHE_TTL.DASHBOARD, forceRefresh);
+  }
+};
+
+// ==========================================
+// 19. USER PROFILE & ACCOUNT MANAGEMENT
+// ==========================================
+export const UserService = {
+  async getUserProfile(userId: string, forceRefresh = false) {
+    const key = queryCache.makeKey(userId, 'user', 'profile');
+    return queryCache.fetch(key, async () => {
+      const docRef = doc(db, 'user_profiles', userId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return null;
+      return snapToData(snap);
+    }, CACHE_TTL.PROFILE, forceRefresh);
+  },
+
+  async saveUserProfile(userId: string, data: any) {
+    const docRef = doc(db, 'user_profiles', userId);
+    const payload = cleanPayload({
+      ...data,
+      userId,
+      updatedAt: serverTimestamp()
     });
+    await setDoc(docRef, payload, { merge: true });
+    invalidateDomain(userId, 'user');
+    return { ...data, userId };
+  },
 
-    // Active Crops
-    const activeCropsCount = crops.filter(c => c.status === 'Planted' || c.status === 'Growing' || c.status === 'Sown').length;
+  async exportAllUserData(userId: string) {
+    const collectionsToExport = [
+      'transactions', 'accounts', 'budgets', 'loans',
+      'documents', 'tasks', 'medicines', 'bills',
+      'contacts', 'crops', 'farms', 'crop_activities',
+      'cows', 'dairy_logs', 'farm_feed', 'dairy_vet_records', 'dairy_breeding',
+      'vehicles', 'vehicle_fuel_logs', 'vehicle_service_logs', 'vehicle_repairs',
+      'vehicle_expenses', 'vehicle_reminders',
+      'student_items', 'student_courses', 'student_timetable',
+      'inventory', 'passwords',
+      'family_posts', 'family_members', 'family_chores', 'family_events', 'family_expenses',
+      'health_records', 'health_visits',
+      'goals', 'goal_milestones'
+    ];
 
-    // Active Loans
-    const totalLoanPrincipal = loans.reduce((acc, curr: any) => acc + (Number(curr.principalAmount) || 0), 0);
-    const totalMonthlyEMI = loans.reduce((acc, curr: any) => acc + (Number(curr.monthlyPay) || 0), 0);
+    const exportData: Record<string, any[]> = {};
 
-    // AI Suggestions
-    const aiSuggestions: string[] = [];
-    if (monthlyExpense > monthlyIncome && monthlyIncome > 0) {
-      aiSuggestions.push("You've exceeded your monthly income in expenses. Review recent spending in Finance.");
-    } else if (monthlyIncome > 0 && monthlyExpense > monthlyIncome * 0.8) {
-      aiSuggestions.push("You're nearing your monthly income limit. Keep an eye on non-essential expenditures.");
-    } else if (monthlyIncome > 0 && monthlyExpense < monthlyIncome * 0.4) {
-      aiSuggestions.push("Great job managing expenses this month! You are saving a healthy portion of your income.");
-    }
+    await Promise.all(
+      collectionsToExport.map(async (colName) => {
+        try {
+          const q = query(collection(db, colName), where('userId', '==', userId));
+          const snap = await getDocs(q);
+          exportData[colName] = snap.docs.map(snapToData);
+        } catch {
+          exportData[colName] = [];
+        }
+      })
+    );
 
-    if (upcomingBill) {
-      aiSuggestions.push(`Don't forget to pay your upcoming bill: ${upcomingBill.name} for ₹${upcomingBill.amount}.`);
-    }
-
-    if (vehicleAlert) {
-      aiSuggestions.push(`Vehicle notice: ${vehicleAlert.message}.`);
-    }
-
-    if (pendingTasksCount > 0) {
-      aiSuggestions.push(`You have ${pendingTasksCount} pending task${pendingTasksCount > 1 ? 's' : ''} to complete today.`);
-    }
-
-    if (activeCropsCount > 0) {
-      aiSuggestions.push(`You have ${activeCropsCount} active crop fields. Verify watering and fertilizer schedules.`);
-    }
-
-    if (aiSuggestions.length === 0) {
-      aiSuggestions.push("All systems optimal! Your finances, tasks, and routines are in sync with Vynora.");
+    try {
+      const uSnap = await getDoc(doc(db, 'user_profiles', userId));
+      if (uSnap.exists()) exportData['user_profile'] = [snapToData(uSnap)];
+      const hSnap = await getDoc(doc(db, 'health_profile', userId));
+      if (hSnap.exists()) exportData['health_profile'] = [snapToData(hSnap)];
+    } catch {
+      // Ignore if not present
     }
 
     return {
-      isOfflineFallback: false,
-      databaseConnected: true,
-      finance: {
-        todaysExpense,
-        monthlyIncome,
-        currentSavings,
-        budgetStatus
-      },
-      actionRequired: {
-        upcomingBill: upcomingBill ? { title: upcomingBill.name, amount: upcomingBill.amount, dueDate: upcomingBill.dueDate } : null,
-        medicine: pendingMedicine ? { name: pendingMedicine.name, dosage: pendingMedicine.dosage, time: pendingMedicine.time } : null,
-        vehicleAlert
-      },
-      domainSnapshots: {
-        milkProduction: todaysMilk,
-        activeCrops: activeCropsCount,
-        pendingTasks: pendingTasksCount,
-        recentActivity: transactions.length + tasks.length,
-        totalLoanPrincipal,
-        totalMonthlyEMI
-      },
-      aiSuggestions
+      appName: 'Vynora',
+      version: '2.0.0',
+      exportedAt: new Date().toISOString(),
+      userId,
+      data: exportData
     };
+  },
+
+  async deleteUserData(userId: string) {
+    const collectionsToClean = [
+      'transactions', 'accounts', 'budgets', 'loans',
+      'documents', 'tasks', 'medicines', 'bills',
+      'contacts', 'crops', 'farms', 'crop_activities',
+      'cows', 'dairy_logs', 'farm_feed', 'dairy_vet_records', 'dairy_breeding',
+      'vehicles', 'vehicle_fuel_logs', 'vehicle_service_logs', 'vehicle_repairs',
+      'vehicle_expenses', 'vehicle_reminders',
+      'student_items', 'student_courses', 'student_timetable',
+      'inventory', 'passwords',
+      'family_posts', 'family_members', 'family_chores', 'family_events', 'family_expenses',
+      'health_records', 'health_visits',
+      'goals', 'goal_milestones'
+    ];
+
+    for (const colName of collectionsToClean) {
+      try {
+        const q = query(collection(db, colName), where('userId', '==', userId));
+        const snap = await getDocs(q);
+        const batch = writeBatch(db);
+        snap.docs.forEach(docSnap => batch.delete(docSnap.ref));
+        await batch.commit();
+      } catch (err) {
+        console.warn(`Could not clean collection ${colName}:`, err);
+      }
+    }
+
+    try {
+      await deleteDoc(doc(db, 'user_profiles', userId));
+      await deleteDoc(doc(db, 'health_profile', userId));
+    } catch {
+      // Ignore if document didn't exist
+    }
+
+    queryCache.clearUser(userId);
+    return { success: true };
   }
 };
 

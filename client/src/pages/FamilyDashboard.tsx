@@ -382,7 +382,7 @@ export default function FamilyDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1">
+      <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { key: 'board', label: `Notice Board (${posts.length})`, icon: Megaphone },
           { key: 'members', label: `Family Roster (${members.length})`, icon: Users },

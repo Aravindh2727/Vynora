@@ -263,7 +263,7 @@ export default function DigitalLocker() {
 
       {/* Subsections & Tabs */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1 w-full md:w-auto">
+        <div className="flex border-b border-glass gap-2 overflow-x-auto pb-1 w-full md:w-auto scrollbar-none">
           {[
             { key: 'all', label: `All Documents (${documents.length})` },
             { key: 'expiring', label: `Renewals & Expiring (${expiringDocs.length})` }

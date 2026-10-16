@@ -154,6 +154,24 @@ service cloud.firestore {
       allow update: if isValidUpdate();
     }
 
+    match /vehicle_repairs/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /vehicle_expenses/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
+    match /vehicle_reminders/{id} {
+      allow read, delete: if isDocOwner();
+      allow create: if isCreatingForSelf();
+      allow update: if isValidUpdate();
+    }
+
     // 11. Student Planner (Assignments, Courses, Timetable)
     match /student_items/{id} {
       allow read, delete: if isDocOwner();
@@ -231,6 +249,10 @@ service cloud.firestore {
       allow update: if isValidUpdate();
     }
 
+    match /health_profile/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
     // 16. Goal Tracker & Milestones
     match /goals/{id} {
       allow read, delete: if isDocOwner();
@@ -243,5 +265,11 @@ service cloud.firestore {
       allow create: if isCreatingForSelf();
       allow update: if isValidUpdate();
     }
+
+    // 17. User Profile & Account Settings
+    match /user_profiles/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
   }
 }
+

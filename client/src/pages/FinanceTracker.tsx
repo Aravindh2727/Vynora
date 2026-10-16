@@ -49,6 +49,7 @@ export default function FinanceTracker() {
   // Accounts State
   const [accounts, setAccounts] = useState<any[]>([]);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [editAccountId, setEditAccountId] = useState<string | null>(null);
   const [accountFormData, setAccountFormData] = useState({ name: '', type: 'Bank', balance: '' });
 
   // Transfer State
@@ -165,17 +166,36 @@ export default function FinanceTracker() {
     if (!accountFormData.name.trim()) return;
 
     try {
-      await FinanceService.addAccount(activeUid, {
-        name: accountFormData.name,
-        type: accountFormData.type,
-        balance: Number(accountFormData.balance) || 0
-      });
+      if (editAccountId) {
+        await FinanceService.updateAccount(editAccountId, {
+          name: accountFormData.name,
+          type: accountFormData.type,
+          balance: Number(accountFormData.balance) || 0
+        });
+      } else {
+        await FinanceService.addAccount(activeUid, {
+          name: accountFormData.name,
+          type: accountFormData.type,
+          balance: Number(accountFormData.balance) || 0
+        });
+      }
       setShowAccountModal(false);
+      setEditAccountId(null);
       setAccountFormData({ name: '', type: 'Bank', balance: '' });
       fetchData();
     } catch (e) {
       console.error('Error saving account:', e);
     }
+  };
+
+  const handleEditAccount = (acc: any) => {
+    setEditAccountId(acc._id || acc.id);
+    setAccountFormData({
+      name: acc.name || '',
+      type: acc.type || 'Bank',
+      balance: String(acc.balance || 0)
+    });
+    setShowAccountModal(true);
   };
 
   // Transfer Submit
@@ -660,13 +680,22 @@ export default function FinanceTracker() {
                       <p className="text-xs text-textMuted capitalize">{acc.type} Account</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setDeleteTarget({ id: acc._id, type: 'account' })}
-                    className="text-textMuted hover:text-red-400 p-1"
-                    title="Delete Account"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEditAccount(acc)}
+                      className="text-textMuted hover:text-primary p-1"
+                      title="Edit Account"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget({ id: acc._id, type: 'account' })}
+                      className="text-textMuted hover:text-red-400 p-1"
+                      title="Delete Account"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-glass flex items-center justify-between">
@@ -907,7 +936,7 @@ export default function FinanceTracker() {
               onClick={(e) => e.stopPropagation()}
               className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm"
             >
-              <h2 className="text-xl font-bold text-textMain mb-4">Add Account or Wallet</h2>
+              <h2 className="text-xl font-bold text-textMain mb-4">{editAccountId ? 'Edit Account' : 'Add Account or Wallet'}</h2>
               <form onSubmit={handleSaveAccount} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-textMuted mb-1">Account Name *</label>
@@ -942,8 +971,10 @@ export default function FinanceTracker() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowAccountModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
-                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">Create Account</button>
+                  <button type="button" onClick={() => { setShowAccountModal(false); setEditAccountId(null); }} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
+                  <button type="submit" className="bg-primary text-background px-5 py-2 rounded-xl font-medium text-sm hover:bg-primary/90 shadow-neon-primary-sm">
+                    {editAccountId ? 'Update Account' : 'Create Account'}
+                  </button>
                 </div>
               </form>
             </motion.div>

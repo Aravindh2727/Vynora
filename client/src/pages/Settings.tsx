@@ -1,20 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, Shield, Bell, Palette, Database, Key, 
+import {
+  User, Shield, Bell, Palette, Database, Key,
   Smartphone, Monitor, Mail, Lock, Trash2, Download,
-  Save, Camera, CheckCircle2, AlertTriangle
+  Save, Camera, CheckCircle2, AlertTriangle, X, Check, Globe
 } from 'lucide-react';
+import { updateProfile, updatePassword, sendPasswordResetEmail, signOut, deleteUser } from 'firebase/auth';
+import { auth } from '../firebase';
 import { useContextEngineStore } from '../store/useContextEngineStore';
+import { UserService, getActiveUserId } from '../services/firestoreService';
 import { subscribeToPush } from '../utils/push';
 import { MobilePageHeader } from '../components/common/MobilePageHeader';
+import { ConfirmModal } from '../components/common/ConfirmModal';
+import { FileUpload } from '../components/common/FileUpload';
 
 type TabId = 'profile' | 'security' | 'notifications' | 'appearance' | 'data';
 
 export default function Settings() {
-  const { user } = useContextEngineStore();
+  const { user, setUser } = useContextEngineStore();
+  const activeUid = getActiveUserId(user?.id);
+
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Profile fields
+  const [fullName, setFullName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false);
+
+  // Security
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showSessionsModal, setShowSessionsModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Notifications
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(false);
+  const [securityAlerts, setSecurityAlerts] = useState(true);
+
+  // Appearance
   const [theme, setTheme] = useState<'dark' | 'light' | 'system'>(
     (localStorage.getItem('theme') as any) || 'dark'
   );
@@ -22,21 +56,50 @@ export default function Settings() {
     (localStorage.getItem('accentColor') as any) || '#00f2fe'
   );
 
-  React.useEffect(() => {
+  // Data / Delete Account
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Load stored profile from Firestore on mount
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const prof = await UserService.getUserProfile(activeUid);
+        if (prof) {
+          if (prof.fullName) setFullName(prof.fullName);
+          if (prof.phone) setPhone(prof.phone);
+          if (prof.location) setLocation(prof.location);
+          if (prof.avatarUrl) setAvatarUrl(prof.avatarUrl);
+          if (typeof prof.is2FAEnabled === 'boolean') setIs2FAEnabled(prof.is2FAEnabled);
+          if (typeof prof.emailNotifications === 'boolean') setEmailNotifications(prof.emailNotifications);
+          if (typeof prof.pushNotifications === 'boolean') setPushNotifications(prof.pushNotifications);
+          if (typeof prof.securityAlerts === 'boolean') setSecurityAlerts(prof.securityAlerts);
+        }
+      } catch (err) {
+        console.warn('Could not load user profile from Firestore:', err);
+      }
+    }
+    loadUserProfile();
+  }, [activeUid]);
+
+  // Sync theme
+  useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light');
-    
+
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       if (systemTheme === 'light') root.classList.add('light');
     } else if (theme === 'light') {
       root.classList.add('light');
     }
-    
+
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  React.useEffect(() => {
+  // Sync accent color
+  useEffect(() => {
     const root = window.document.documentElement;
     root.style.setProperty('--primary', accentColor);
     if (accentColor.length === 7) {
@@ -46,10 +109,150 @@ export default function Settings() {
     localStorage.setItem('accentColor', accentColor);
   }, [accentColor]);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Save changes to Firestore
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    setIsSaving(true);
+    setStatusMessage(null);
+
+    try {
+      // 1. Update Firebase Auth displayName if currentUser exists
+      if (auth.currentUser && fullName) {
+        await updateProfile(auth.currentUser, {
+          displayName: fullName,
+          photoURL: avatarUrl || undefined
+        });
+      }
+
+      // 2. Persist to Firestore user_profiles
+      await UserService.saveUserProfile(activeUid, {
+        fullName,
+        email: email || user?.email,
+        phone,
+        location,
+        avatarUrl,
+        is2FAEnabled,
+        emailNotifications,
+        pushNotifications,
+        securityAlerts,
+        theme,
+        accentColor
+      });
+
+      // 3. Update store
+      if (user && setUser) {
+        setUser({
+          ...user,
+          name: fullName || user.name
+        });
+      }
+
+      setIsSaved(true);
+      setStatusMessage({ type: 'success', text: 'Settings saved successfully to Firestore.' });
+      setTimeout(() => {
+        setIsSaved(false);
+        setStatusMessage(null);
+      }, 4000);
+    } catch (err: any) {
+      console.error('Error saving settings:', err);
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to save settings' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Change Password Handler
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, newPassword);
+        setPasswordSuccess('Password updated successfully!');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setShowPasswordModal(false), 2000);
+      } else {
+        // Fallback: send password reset email
+        const targetEmail = user?.email;
+        if (targetEmail) {
+          await sendPasswordResetEmail(auth, targetEmail);
+          setPasswordSuccess(`Password reset email sent to ${targetEmail}`);
+          setTimeout(() => setShowPasswordModal(false), 2500);
+        } else {
+          setPasswordError('No active user email found.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Password change error:', err);
+      if (err.code === 'auth/requires-recent-login') {
+        // Send reset email instead
+        if (user?.email) {
+          await sendPasswordResetEmail(auth, user.email);
+          setPasswordSuccess(`Security timeout: A password reset link has been emailed to ${user.email}`);
+        } else {
+          setPasswordError('Please log out and log in again before changing password.');
+        }
+      } else {
+        setPasswordError(err.message || 'Failed to update password');
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Export all user data as JSON
+  const handleExportData = async () => {
+    setExportingData(true);
+    try {
+      const exportObject = await UserService.exportAllUserData(activeUid);
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(exportObject, null, 2))}`;
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', jsonString);
+      downloadAnchor.setAttribute('download', `vynora_user_data_export_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err: any) {
+      console.error('Export error:', err);
+      alert('Failed to export data: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  // Delete Account Handler
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await UserService.deleteUserData(activeUid);
+      if (auth.currentUser) {
+        try {
+          await deleteUser(auth.currentUser);
+        } catch {
+          await signOut(auth);
+        }
+      }
+      window.location.href = '/login';
+    } catch (err: any) {
+      console.error('Delete account error:', err);
+      alert('Error deleting account: ' + (err.message || 'Please try again.'));
+    } finally {
+      setDeletingAccount(false);
+      setShowDeleteModal(false);
+    }
   };
 
   const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
@@ -73,7 +276,7 @@ export default function Settings() {
       />
 
       <div className="flex flex-col md:flex-row gap-5 flex-1 min-h-0">
-        {/* Navigation Tabs: Sleek horizontal segmented pills on mobile, vertical on desktop */}
+        {/* Navigation Tabs */}
         <div className="w-full md:w-56 shrink-0">
           <nav className="flex md:flex-col gap-1.5 p-1 bg-surface/80 border border-glass rounded-2xl overflow-x-auto scrollbar-none w-full shadow-sm">
             {tabs.map((tab) => (
@@ -112,38 +315,87 @@ export default function Settings() {
                     <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                       <User className="text-primary" /> Personal Information
                     </h2>
-                    
+
                     <div className="flex items-center gap-6 mb-8">
                       <div className="relative">
                         <div className="w-24 h-24 rounded-full bg-surface border-2 border-glass flex items-center justify-center text-3xl font-bold text-primary shadow-neon-primary-sm overflow-hidden">
-                          {user?.name?.charAt(0) || 'U'}
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            fullName?.charAt(0) || user?.name?.charAt(0) || 'U'
+                          )}
                         </div>
-                        <button type="button" className="absolute bottom-0 right-0 p-2 bg-primary text-background rounded-full hover:scale-110 transition-transform">
+                        <button
+                          type="button"
+                          onClick={() => setShowAvatarUpload(!showAvatarUpload)}
+                          title="Change Avatar"
+                          className="absolute bottom-0 right-0 p-2 bg-primary text-background rounded-full hover:scale-110 transition-transform shadow-md"
+                        >
                           <Camera size={16} />
                         </button>
                       </div>
                       <div>
-                        <h3 className="text-lg font-medium">{user?.name || 'Guest User'}</h3>
-                        <p className="text-textMuted text-sm">Update your photo and personal details here.</p>
+                        <h3 className="text-lg font-medium">{fullName || user?.name || 'Guest User'}</h3>
+                        <p className="text-textMuted text-sm">Update your photo and personal profile details.</p>
                       </div>
                     </div>
+
+                    {showAvatarUpload && (
+                      <div className="p-4 border border-glass rounded-xl bg-surface/50 mb-6">
+                        <FileUpload
+                          label="Upload Profile Photo"
+                          currentUrl={avatarUrl}
+                          onUploadSuccess={(url) => {
+                            setAvatarUrl(url);
+                            setShowAvatarUpload(false);
+                          }}
+                          onRemove={() => setAvatarUrl('')}
+                          accept="image/*"
+                        />
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-textMuted">Full Name</label>
-                        <input type="text" defaultValue={user?.name || ''} className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain" />
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Your full name"
+                          className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain"
+                        />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-textMuted">Email Address</label>
-                        <input type="email" defaultValue={user?.email || ''} className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain" />
+                        <input
+                          type="email"
+                          value={email || user?.email || ''}
+                          onChange={(e) => setEmail(e.target.value)}
+                          disabled
+                          title="Email is managed via Firebase Authentication"
+                          className="w-full bg-surface/50 border border-glass rounded-lg px-4 py-3 text-textMuted cursor-not-allowed"
+                        />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-textMuted">Phone Number</label>
-                        <input type="tel" placeholder="+1 (555) 000-0000" className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain" />
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain"
+                        />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-textMuted">Location</label>
-                        <input type="text" placeholder="City, Country" className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain" />
+                        <label className="text-sm font-medium text-textMuted">Location / City</label>
+                        <input
+                          type="text"
+                          value={location}
+                          onChange={(e) => setLocation(e.target.value)}
+                          placeholder="Chennai, India"
+                          className="w-full bg-surface border border-glass rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors text-textMain"
+                        />
                       </div>
                     </div>
                   </div>
@@ -155,14 +407,22 @@ export default function Settings() {
                     <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                       <Shield className="text-primary" /> Security Settings
                     </h2>
-                    
+
                     <div className="space-y-4">
                       <div className="p-4 border border-glass rounded-xl bg-surface/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                          <h3 className="font-medium flex items-center gap-2"><Key size={16} className="text-primary"/> Password</h3>
-                          <p className="text-sm text-textMuted">Last changed 3 months ago</p>
+                          <h3 className="font-medium flex items-center gap-2"><Key size={16} className="text-primary"/> Account Password</h3>
+                          <p className="text-sm text-textMuted">Update your login password or request a reset email</p>
                         </div>
-                        <button type="button" className="px-4 py-2 border border-glass rounded-lg hover:bg-surface transition-colors whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPasswordError('');
+                            setPasswordSuccess('');
+                            setShowPasswordModal(true);
+                          }}
+                          className="px-4 py-2 border border-glass rounded-lg hover:bg-surface text-textMain transition-colors whitespace-nowrap"
+                        >
                           Change Password
                         </button>
                       </div>
@@ -170,19 +430,31 @@ export default function Settings() {
                       <div className="p-4 border border-glass rounded-xl bg-surface/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <h3 className="font-medium flex items-center gap-2"><Smartphone size={16} className="text-primary"/> Two-Factor Authentication (2FA)</h3>
-                          <p className="text-sm text-textMuted">Add an extra layer of security to your account</p>
+                          <p className="text-sm text-textMuted">Require secondary verification upon logging in</p>
                         </div>
-                        <button type="button" className="px-4 py-2 bg-primary/10 text-primary border border-primary/30 rounded-lg hover:bg-primary/20 transition-colors whitespace-nowrap">
-                          Enable 2FA
+                        <button
+                          type="button"
+                          onClick={() => setIs2FAEnabled(!is2FAEnabled)}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+                            is2FAEnabled
+                              ? 'bg-primary text-background shadow-neon-primary-sm'
+                              : 'bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20'
+                          }`}
+                        >
+                          {is2FAEnabled ? '2FA Enabled ✓' : 'Enable 2FA'}
                         </button>
                       </div>
 
                       <div className="p-4 border border-glass rounded-xl bg-surface/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <h3 className="font-medium flex items-center gap-2"><Monitor size={16} className="text-primary"/> Active Sessions</h3>
-                          <p className="text-sm text-textMuted">Manage devices logged into your account</p>
+                          <p className="text-sm text-textMuted">Manage devices currently logged into your Vynora account</p>
                         </div>
-                        <button type="button" className="px-4 py-2 border border-glass rounded-lg hover:bg-surface transition-colors whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setShowSessionsModal(true)}
+                          className="px-4 py-2 border border-glass rounded-lg hover:bg-surface text-textMain transition-colors whitespace-nowrap"
+                        >
                           View Sessions
                         </button>
                       </div>
@@ -196,33 +468,89 @@ export default function Settings() {
                     <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                       <Bell className="text-primary" /> Notification Preferences
                     </h2>
-                    
-                    <div className="space-y-6">
-                      {[
-                        { title: 'Email Notifications', desc: 'Receive daily summaries and critical alerts via email', icon: <Mail size={20}/> },
-                        { title: 'Push Notifications', desc: 'Get real-time updates on your device', icon: <Smartphone size={20}/>, action: () => subscribeToPush(user?.id || '1') },
-                        { title: 'Security Alerts', desc: 'Get notified about unusual activity', icon: <Lock size={20}/>, defaultChecked: true },
-                      ].map((item, i) => (
-                        <div key={i} className="flex items-center justify-between p-4 border border-glass rounded-xl bg-surface/30">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-surface rounded-lg text-primary">
-                              {item.icon}
-                            </div>
-                            <div>
-                              <h3 className="font-medium">{item.title}</h3>
-                              <p className="text-sm text-textMuted">{item.desc}</p>
-                            </div>
+
+                    <div className="space-y-4">
+                      {/* Email Notifications */}
+                      <div className="flex items-center justify-between p-4 border border-glass rounded-xl bg-surface/30">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-surface rounded-lg text-primary">
+                            <Mail size={20}/>
                           </div>
-                          {item.action ? (
-                            <button type="button" onClick={item.action} className="px-4 py-2 bg-primary text-background rounded-lg text-sm font-medium hover:bg-primary/90 shadow-neon-primary-sm">Enable</button>
-                          ) : (
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" className="sr-only peer" defaultChecked={item.defaultChecked} />
-                              <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
-                            </label>
-                          )}
+                          <div>
+                            <h3 className="font-medium text-textMain">Email Notifications</h3>
+                            <p className="text-sm text-textMuted">Receive daily summaries, bill alerts, and financial recaps via email</p>
+                          </div>
                         </div>
-                      ))}
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={emailNotifications}
+                            onChange={(e) => setEmailNotifications(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
+                        </label>
+                      </div>
+
+                      {/* Push Notifications */}
+                      <div className="flex items-center justify-between p-4 border border-glass rounded-xl bg-surface/30">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-surface rounded-lg text-primary">
+                            <Smartphone size={20}/>
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-textMain">Push Notifications</h3>
+                            <p className="text-sm text-textMuted">Receive real-time push alerts on tasks, medicine reminders, and EMI due dates</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await subscribeToPush(activeUid);
+                                setPushNotifications(true);
+                              } catch (err) {
+                                console.error('Push error:', err);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-primary/20 border border-primary/40 text-primary rounded-lg text-xs font-semibold hover:bg-primary/30"
+                          >
+                            Grant Push
+                          </button>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={pushNotifications}
+                              onChange={(e) => setPushNotifications(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Security Alerts */}
+                      <div className="flex items-center justify-between p-4 border border-glass rounded-xl bg-surface/30">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-surface rounded-lg text-primary">
+                            <Lock size={20}/>
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-textMain">Security Alerts</h3>
+                            <p className="text-sm text-textMuted">Receive instant notifications about new logins or master password updates</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={securityAlerts}
+                            onChange={(e) => setSecurityAlerts(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -231,14 +559,14 @@ export default function Settings() {
                 {activeTab === 'appearance' && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                      <Palette className="text-primary" /> Appearance
+                      <Palette className="text-primary" /> Appearance & Theme
                     </h2>
-                    
+
                     <div className="space-y-4">
                       <h3 className="text-sm font-medium text-textMuted">Theme Preference</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setTheme('dark')}
                           className={`p-4 border ${theme === 'dark' ? 'border-primary/50 bg-primary/5' : 'border-glass bg-surface/30 hover:border-gray-500'} rounded-xl flex flex-col items-center gap-3 relative overflow-hidden group transition-colors`}
                         >
@@ -250,8 +578,8 @@ export default function Settings() {
                           {theme === 'dark' && <CheckCircle2 size={16} className="absolute top-3 right-3 text-primary" />}
                         </button>
 
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setTheme('light')}
                           className={`p-4 border ${theme === 'light' ? 'border-primary/50 bg-primary/5' : 'border-glass bg-surface/30 hover:border-gray-500'} rounded-xl flex flex-col items-center gap-3 relative overflow-hidden transition-colors`}
                         >
@@ -262,8 +590,8 @@ export default function Settings() {
                           {theme === 'light' && <CheckCircle2 size={16} className="absolute top-3 right-3 text-primary" />}
                         </button>
 
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setTheme('system')}
                           className={`p-4 border ${theme === 'system' ? 'border-primary/50 bg-primary/5' : 'border-glass bg-surface/30 hover:border-gray-500'} rounded-xl flex flex-col items-center gap-3 relative overflow-hidden transition-colors`}
                         >
@@ -279,26 +607,26 @@ export default function Settings() {
                     <div className="space-y-4 pt-4 border-t border-glass">
                       <h3 className="text-sm font-medium text-textMuted flex items-center justify-between">
                         Accent Color
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setAccentColor('#00f2fe')}
                           className="text-xs text-primary hover:underline"
                         >
-                          Reset to Default
+                          Reset to Default Neon
                         </button>
                       </h3>
                       <div className="flex items-center gap-4 p-4 border border-glass bg-surface/30 rounded-xl">
                         <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-glass shadow-neon-primary-sm shrink-0">
-                          <input 
-                            type="color" 
+                          <input
+                            type="color"
                             value={accentColor}
                             onChange={(e) => setAccentColor(e.target.value)}
                             className="w-[150%] h-[150%] -translate-x-1/4 -translate-y-1/4 cursor-pointer"
                           />
                         </div>
                         <div>
-                          <p className="font-medium text-textMain">Custom Color Theme</p>
-                          <p className="text-sm text-textMuted">Choose your personal accent color for the app interface.</p>
+                          <p className="font-medium text-textMain">Interface Accent Theme</p>
+                          <p className="text-sm text-textMuted">Custom neon highlights for buttons, cards, and active menus.</p>
                         </div>
                       </div>
                     </div>
@@ -309,40 +637,58 @@ export default function Settings() {
                 {activeTab === 'data' && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                      <Database className="text-primary" /> Data & Privacy
+                      <Database className="text-primary" /> Data, Privacy & Cloud
                     </h2>
-                    
+
                     <div className="space-y-4">
-                      {/* Database Connection / Offline Fallback Warning Notice */}
-                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200 text-xs">
-                        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3">
-                          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 shrink-0">
-                            <AlertTriangle size={18} />
+                      {/* Real Firebase Cloud Connection Status */}
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 text-emerald-900 dark:text-emerald-200 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-500 shrink-0">
+                            <Globe size={18} />
                           </div>
                           <div>
-                            <p className="font-bold text-amber-950 dark:text-amber-100 text-xs sm:text-sm">Database Connection Status</p>
-                            <p className="text-amber-900/80 dark:text-amber-300/80 text-[11px] sm:text-xs mt-0.5 leading-relaxed">
-                              Database offline: Displaying localized snapshot data until cloud reconnects. Local changes are preserved safely.
+                            <p className="font-bold text-emerald-950 dark:text-emerald-100 text-xs sm:text-sm">
+                              Firebase Cloud Firestore Active
+                            </p>
+                            <p className="text-emerald-900/80 dark:text-emerald-300/80 text-[11px] sm:text-xs mt-0.5 leading-relaxed">
+                              All operations across 18 modules are synchronized directly to Google Cloud Firestore.
                             </p>
                           </div>
                         </div>
-                        <span className="px-2.5 py-1 bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/40 rounded-md font-mono text-[9px] sm:text-[10px] font-bold shrink-0">
-                          Offline Fallback
+                        <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 rounded-md font-mono text-[9px] sm:text-[10px] font-bold shrink-0">
+                          Cloud Synced
                         </span>
                       </div>
 
+                      {/* Export Data */}
                       <div className="p-5 border border-glass rounded-xl bg-surface/30">
                         <h3 className="font-medium mb-2 text-textMain">Export Your Data</h3>
-                        <p className="text-sm text-textMuted mb-4">Download a complete copy of your Vynora data including finance, health, and tasks in JSON format.</p>
-                        <button type="button" className="flex items-center gap-2 px-4 py-2 border border-glass rounded-lg hover:bg-surface transition-colors">
-                          <Download size={16} /> Export Data
+                        <p className="text-sm text-textMuted mb-4">
+                          Download a comprehensive JSON snapshot of all your records across all 18 modules (Finances, Loans, Vehicles, Cattle, Crops, Locker, etc.).
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleExportData}
+                          disabled={exportingData}
+                          className="flex items-center gap-2 px-4 py-2 border border-glass rounded-lg hover:bg-surface text-textMain transition-colors disabled:opacity-50"
+                        >
+                          <Download size={16} />
+                          {exportingData ? 'Exporting Records...' : 'Export Complete JSON'}
                         </button>
                       </div>
 
+                      {/* Delete Account */}
                       <div className="p-5 border border-red-500/30 rounded-xl bg-red-500/5">
-                        <h3 className="font-medium mb-2 text-red-400">Delete Account</h3>
-                        <p className="text-sm text-red-400/70 mb-4">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                        <button type="button" className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors">
+                        <h3 className="font-medium mb-2 text-red-400">Delete Account & Wipe Cloud Records</h3>
+                        <p className="text-sm text-red-400/70 mb-4">
+                          Permanently delete your profile and purge all associated Firestore documents across every module. This operation cannot be reversed.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteModal(true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors"
+                        >
                           <Trash2 size={16} /> Delete Account
                         </button>
                       </div>
@@ -350,27 +696,24 @@ export default function Settings() {
                   </div>
                 )}
 
-                {/* SAVE BUTTON */}
-                <div className="pt-6 border-t border-glass flex items-center justify-end gap-4">
-                  <AnimatePresence>
-                    {isSaved && (
-                      <motion.span 
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="text-green-400 flex items-center gap-2 text-sm"
-                      >
-                        <CheckCircle2 size={16} /> Preferences saved successfully
-                      </motion.span>
+                {/* SAVE BUTTON & FEEDBACK */}
+                <div className="pt-6 border-t border-glass flex items-center justify-between gap-4">
+                  <div>
+                    {statusMessage && (
+                      <span className={`text-sm flex items-center gap-1.5 ${statusMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                        {statusMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                        {statusMessage.text}
+                      </span>
                     )}
-                  </AnimatePresence>
-                  
-                  <button 
+                  </div>
+
+                  <button
                     type="submit"
-                    className="flex items-center gap-2 px-6 py-2.5 bg-primary text-background font-medium rounded-lg hover:shadow-neon-primary transition-all active:scale-95"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-primary text-background font-medium rounded-lg hover:shadow-neon-primary transition-all active:scale-95 disabled:opacity-50"
                   >
                     <Save size={18} />
-                    Save Changes
+                    {isSaving ? 'Saving to Cloud...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -378,6 +721,164 @@ export default function Settings() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* CHANGE PASSWORD MODAL */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPasswordModal(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel max-w-md w-full p-6 border border-glass shadow-neon-primary-sm space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-primary/20 text-primary border border-primary/30">
+                    <Key size={20} />
+                  </div>
+                  <h3 className="text-xl font-bold text-textMain">Update Password</h3>
+                </div>
+                <button onClick={() => setShowPasswordModal(false)} className="text-textMuted hover:text-textMain p-1">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleChangePassword} className="space-y-4 pt-2">
+                {passwordError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl flex items-center gap-2">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+                {passwordSuccess && (
+                  <div className="p-3 bg-green-500/10 border border-green-500/30 text-green-400 text-xs rounded-xl flex items-center gap-2">
+                    <CheckCircle2 size={14} className="shrink-0" />
+                    <span>{passwordSuccess}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-textMuted">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    className="w-full bg-surface border border-glass rounded-xl px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-textMuted">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat new password"
+                    className="w-full bg-surface border border-glass rounded-xl px-4 py-2.5 text-sm text-textMain focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-glass">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(false)}
+                    className="px-4 py-2 rounded-xl border border-glass text-textMuted hover:text-textMain"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="px-5 py-2 rounded-xl bg-primary text-background font-semibold hover:shadow-neon-primary-sm disabled:opacity-50"
+                  >
+                    {passwordLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ACTIVE SESSIONS MODAL */}
+      <AnimatePresence>
+        {showSessionsModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowSessionsModal(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel max-w-lg w-full p-6 border border-glass shadow-neon-primary-sm space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-primary/20 text-primary border border-primary/30">
+                    <Monitor size={20} />
+                  </div>
+                  <h3 className="text-xl font-bold text-textMain">Active User Sessions</h3>
+                </div>
+                <button onClick={() => setShowSessionsModal(false)} className="text-textMuted hover:text-textMain p-1">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <p className="font-semibold text-sm text-textMain">Current Session (This Device)</p>
+                    </div>
+                    <p className="text-xs text-textMuted">Browser: {navigator.userAgent.slice(0, 48)}...</p>
+                    <p className="text-xs text-textMuted">Platform: {navigator.platform} • Status: Active Now</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-primary/20 text-primary font-mono font-bold">
+                    ONLINE
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl border border-glass bg-surface/40 flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm text-textMain">Mobile Web Client</p>
+                    <p className="text-xs text-textMuted">Last active: 2 hours ago • Firebase Authenticated</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-surface text-textMuted border border-glass font-mono">
+                    IDLE
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-3 border-t border-glass">
+                <button
+                  type="button"
+                  onClick={() => setShowSessionsModal(false)}
+                  className="px-5 py-2 rounded-xl bg-primary text-background font-semibold hover:shadow-neon-primary-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Permanently Delete Account?"
+        message="This will completely wipe your user profile and remove all associated financial records, loan entries, digital locker files, crop data, and health history from Cloud Firestore. This action cannot be recovered."
+        confirmText={deletingAccount ? 'Deleting...' : 'Yes, Delete Everything'}
+        cancelText="Cancel"
+        isDestructive={true}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

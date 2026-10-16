@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
+import { queryCache } from './services/queryCache';
 import { useContextEngineStore } from './store/useContextEngineStore';
 import { NavigationProvider } from './context/NavigationContext';
 import Dashboard from './pages/Dashboard';
@@ -90,6 +91,7 @@ export function AppContent() {
       if (firebaseUser && firebaseUser.emailVerified) {
         setUser({ id: firebaseUser.uid, name: firebaseUser.displayName || 'User', email: firebaseUser.email || '' });
       } else {
+        queryCache.clearAll();
         setUser(null);
       }
       setAuthLoading(false);
@@ -138,6 +140,7 @@ export function AppContent() {
   };
 
   const handleLogout = async () => {
+    queryCache.clearAll();
     await auth.signOut();
     setUser(null);
     navigate('/login');
@@ -265,7 +268,7 @@ export function AppContent() {
       </motion.aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen relative w-full overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen relative w-full min-w-0 overflow-hidden">
         {/* 
           DESKTOP HEADER (always shown on md:)
           MOBILE HEADER (shown ONLY on Dashboard '/' to provide logo, greeting, theme toggle, notifications)
@@ -334,7 +337,7 @@ export function AppContent() {
         </header>
 
         {/* Scrollable Main Views */}
-        <div className="flex-1 p-3 sm:p-5 md:p-8 overflow-y-auto custom-scrollbar relative pb-16 md:pb-8">
+        <div className="flex-1 p-3 sm:p-5 md:p-8 overflow-y-auto overflow-x-hidden custom-scrollbar relative pb-16 md:pb-8 min-w-0 max-w-full">
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route element={<ProtectedRoute />}>

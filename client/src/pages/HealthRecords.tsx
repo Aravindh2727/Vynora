@@ -52,6 +52,7 @@ export default function HealthRecords() {
   // Doctor Visits State
   const [visits, setVisits] = useState<any[]>([]);
   const [showVisitModal, setShowVisitModal] = useState(false);
+  const [editVisitId, setEditVisitId] = useState<string | null>(null);
   const [visitFormData, setVisitFormData] = useState({
     doctorName: '',
     specialty: 'General Physician',
@@ -179,11 +180,19 @@ export default function HealthRecords() {
     if (!visitFormData.doctorName.trim()) return;
 
     try {
-      await HealthService.addVisit(activeUid, {
-        ...visitFormData,
-        cost: Number(visitFormData.cost) || 0
-      });
+      if (editVisitId) {
+        await HealthService.updateVisit(editVisitId, {
+          ...visitFormData,
+          cost: Number(visitFormData.cost) || 0
+        });
+      } else {
+        await HealthService.addVisit(activeUid, {
+          ...visitFormData,
+          cost: Number(visitFormData.cost) || 0
+        });
+      }
       setShowVisitModal(false);
+      setEditVisitId(null);
       setVisitFormData({
         doctorName: '', specialty: 'General Physician', clinic: '',
         visitDate: new Date().toISOString().split('T')[0], followUpDate: '',
@@ -193,6 +202,22 @@ export default function HealthRecords() {
     } catch (e) {
       console.error('Error saving doctor visit:', e);
     }
+  };
+
+  const handleEditVisit = (v: any) => {
+    setEditVisitId(v._id || v.id);
+    setVisitFormData({
+      doctorName: v.doctorName || '',
+      specialty: v.specialty || 'General Physician',
+      clinic: v.clinic || '',
+      visitDate: formatIsoDate(v.visitDate, getTodayIso()),
+      followUpDate: formatIsoDate(v.followUpDate, ''),
+      diagnosis: v.diagnosis || '',
+      prescriptions: v.prescriptions || '',
+      cost: v.cost ? String(v.cost) : '',
+      reportUrl: v.reportUrl || ''
+    });
+    setShowVisitModal(true);
   };
 
   // Save Health Profile
@@ -472,9 +497,22 @@ export default function HealthRecords() {
                         Prescription / Lab Report ↗
                       </a>
                     ) : <span className="text-textMuted">No document</span>}
-                    <button onClick={() => setDeleteTarget({ id: v._id, type: 'visit' })} className="text-textMuted hover:text-red-400">
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditVisit(v)}
+                        className="text-textMuted hover:text-primary p-1"
+                        title="Edit Consultation"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget({ id: v._id, type: 'visit' })}
+                        className="text-textMuted hover:text-red-400 p-1"
+                        title="Delete Consultation"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -848,9 +886,9 @@ export default function HealthRecords() {
                 />
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-glass">
-                  <button type="button" onClick={() => setShowVisitModal(false)} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
+                  <button type="button" onClick={() => { setShowVisitModal(false); setEditVisitId(null); }} className="px-4 py-2 rounded-xl border border-glass text-textMuted text-sm">Cancel</button>
                   <button type="submit" className="bg-blue-500 text-white px-5 py-2 rounded-xl font-medium text-sm hover:bg-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                    Save Consultation
+                    {editVisitId ? 'Update Consultation' : 'Save Consultation'}
                   </button>
                 </div>
               </form>

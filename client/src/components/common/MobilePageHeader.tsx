@@ -99,16 +99,16 @@ export const MobilePageHeader: React.FC<MobilePageHeaderProps> = ({
         )}
       </div>
 
-      {/* Main Title Row: Minimal size header, font & icon */}
+      {/* Main Title Row: Balanced readable header, font & icon */}
       <div className="flex items-start justify-between gap-2.5">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {icon && (
-              <span className="p-1 rounded-lg bg-surface border border-glass shrink-0 text-primary flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">
+              <span className="p-1.5 rounded-lg bg-surface border border-glass shrink-0 text-primary flex items-center justify-center [&>svg]:w-4.5 [&>svg]:h-4.5">
                 {icon}
               </span>
             )}
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-textMain truncate">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-textMain truncate">
               {title}
             </h1>
             {normalizedBadges.map((b, i) => (

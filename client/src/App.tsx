@@ -271,23 +271,23 @@ export function AppContent() {
           MOBILE HEADER (shown ONLY on Dashboard '/' to provide logo, greeting, theme toggle, notifications)
           Inner mobile pages display their dedicated MobilePageHeader with back navigation!
         */}
-        <header className={`${isDashboard ? 'flex' : 'hidden md:flex'} h-13 md:h-20 px-3 md:px-8 items-center justify-between shrink-0 gap-2.5 border-b border-glass/40 md:border-b-0`}>
+        <header className={`${isDashboard ? 'flex' : 'hidden md:flex'} h-16 md:h-20 px-3.5 sm:px-4 md:px-8 items-center justify-between shrink-0 gap-2 border-b border-glass/40 md:border-b-0`}>
           {/* Left Side: Brand on mobile, search on desktop */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            {/* Mobile Branding (Dashboard only) — Minimal size */}
-            <div className="flex items-center gap-2 md:hidden">
-              <div className="w-7 h-7 rounded-full shadow-neon-primary-sm shrink-0 overflow-hidden border border-primary/30">
-                <img src="/vynora_logo.png" alt="Vynora" className="w-full h-full object-cover" />
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Mobile Branding (Dashboard only) — Guaranteed no overlap */}
+            <div className="flex items-center gap-2.5 md:hidden shrink-0">
+              <div className="w-9 h-9 rounded-full shadow-neon-primary shrink-0 overflow-hidden border border-primary/40 p-0.5 bg-surfaceLight">
+                <img src="/vynora_logo.png" alt="Vynora" className="w-full h-full object-cover rounded-full" />
               </div>
-              <div className="min-w-0">
-                <h1 className="text-sm font-bold tracking-wider text-textMain leading-tight">Vynora</h1>
-                <p className="text-[9px] text-primary truncate font-medium">Smart Life OS</p>
+              <div className="shrink-0">
+                <h1 className="text-base font-bold tracking-wide text-textMain leading-tight whitespace-nowrap">Vynora</h1>
+                <p className="text-[10.5px] text-primary whitespace-nowrap font-medium">Smart Life OS</p>
               </div>
             </div>
 
             {/* Desktop Search */}
             <div 
-              className="hidden md:flex items-center gap-2 px-4 py-2 glass-panel cursor-pointer text-textMuted hover:text-textMain transition-colors w-full max-w-[280px] sm:w-72 shadow-neon-primary-sm rounded-lg"
+              className="hidden md:flex items-center gap-2 px-4 py-2 glass-panel cursor-pointer text-textMuted hover:text-textMain transition-colors w-full max-w-[280px] sm:w-72 shadow-neon-primary rounded-lg"
               onClick={() => setCmdMenuOpen(true)}
             >
               <Search size={16} className="text-primary shrink-0" />
@@ -296,24 +296,24 @@ export function AppContent() {
             </div>
           </div>
 
-          {/* Right Side: Theme toggle, notifications, profile — Minimal size */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right Side: Theme toggle, notifications, profile — Crisp, consistent touch buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Theme Toggle Button */}
             <button 
               onClick={toggleTheme}
               aria-label="Toggle Theme"
-              className="p-1.5 rounded-full glass-panel hover:text-primary transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center text-textMuted"
+              className="w-9 h-9 rounded-full glass-panel hover:text-primary transition-colors shrink-0 flex items-center justify-center text-textMuted active:scale-95"
               title={`Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
             >
-              {currentTheme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+              {currentTheme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
 
             {/* Notifications */}
             <button 
               aria-label="Notifications"
-              className="p-1.5 rounded-full glass-panel hover:text-primary transition-colors relative min-h-[34px] min-w-[34px] flex items-center justify-center text-textMuted"
+              className="w-9 h-9 rounded-full glass-panel hover:text-primary transition-colors relative shrink-0 flex items-center justify-center text-textMuted active:scale-95"
             >
-              <Bell size={15} />
+              <Bell size={16} />
               {aiStatus === 'thinking' && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full animate-ping"></span>
               )}
@@ -323,9 +323,9 @@ export function AppContent() {
             <button
               onClick={() => navigate('/settings')}
               aria-label="User Account"
-              className="flex items-center gap-1.5 glass-panel px-2 py-1 rounded-full border border-glass hover:border-primary/40 transition-colors min-h-[34px]"
+              className="h-9 px-2 rounded-full glass-panel border border-glass hover:border-primary/40 transition-colors shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
             >
-              <div className="w-5.5 h-5.5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[11px]">
+              <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <span className="text-xs font-medium hidden sm:inline">{user?.name?.split(' ')[0] || 'User'}</span>

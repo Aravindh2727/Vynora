@@ -259,20 +259,20 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 pb-10">
-      {/* Clean Minimal Greeting Header */}
+      {/* Greeting Header — Balanced slightly bigger */}
       <div>
-        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-textMain">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-textMain">
           {getGreeting()}, {user?.name?.split(' ')[0] || 'Aravindh'}
         </h1>
       </div>
 
-      {/* Summary Cards: Minimal size, compact, responsive */}
+      {/* Summary Cards: Clean, responsive, comfortable sizing */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[11px] font-bold uppercase tracking-wider text-textMuted flex items-center gap-1">
-            <Activity size={12} className="text-primary" /> Live Daily Summary
+          <h2 className="text-xs font-bold uppercase tracking-wider text-textMuted flex items-center gap-1.5">
+            <Activity size={13} className="text-primary" /> Live Daily Summary
           </h2>
-          <span className="text-[10px] text-textMuted">Tap any card to view</span>
+          <span className="text-[11px] text-textMuted">Tap any card to view</span>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
@@ -390,10 +390,10 @@ export default function Dashboard() {
       */}
       <div>
         <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="text-[11px] font-bold uppercase tracking-wider text-textMuted flex items-center gap-1">
-            <Sparkles size={12} className="text-primary" /> Application Sections
+          <h2 className="text-xs font-bold uppercase tracking-wider text-textMuted flex items-center gap-1.5">
+            <Sparkles size={13} className="text-primary" /> Application Sections
           </h2>
-          <span className="text-[10px] text-primary font-medium">{allModules.length} Modules</span>
+          <span className="text-[11px] text-primary font-semibold">{allModules.length} Modules</span>
         </div>
 
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">

@@ -3,6 +3,9 @@ dist/
 dev-dist/
 build/
 .env
-.env.*.local
+.env.*
+*.env
+!.env.example
+!**/.env.example
 .DS_Store
 *.log

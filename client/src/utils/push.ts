@@ -25,7 +25,16 @@ export async function subscribeToPush(userId: string) {
             if (permission !== 'granted') return;
 
             const res = await fetch(`${API_BASE_URL}/api/notifications/vapidPublicKey`);
-            const { publicKey } = await res.json();
+            if (!res.ok) {
+                console.warn('Push notifications not available from server');
+                return;
+            }
+            const data = await res.json();
+            const publicKey = data?.publicKey;
+            if (!publicKey) {
+                console.warn('VAPID public key not configured on server');
+                return;
+            }
 
             const subscription = await register.pushManager.subscribe({
                 userVisibleOnly: true,

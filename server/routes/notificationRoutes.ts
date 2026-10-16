@@ -5,6 +5,9 @@ const router = express.Router();
 
 // Get VAPID public key
 router.get('/vapidPublicKey', (req, res) => {
+    if (!vapidPublicKey) {
+        return res.status(503).json({ error: 'Push notifications are not configured on this server.' });
+    }
     res.json({ publicKey: vapidPublicKey });
 });
 

@@ -1,14 +1,26 @@
 import webpush from 'web-push';
 
-// Hardcoded for Vynora local environment (in production, use .env)
-const vapidPublicKey = 'BLXzXvww9TXfpCrCnKaATPLOjk02v8N7gggdiK1_MhNKXYW30Z2H4MNqJS_GEBWdjQGPXdPzC2jv3hCzK2RgFWY';
-const vapidPrivateKey = 'zf7rZdxE_G04jZ9kKGfE4XBTOOQAR9bi18N1MVKlWkQ';
+import dotenv from 'dotenv';
+dotenv.config();
 
-webpush.setVapidDetails(
-  'mailto:noreply@vynora.ai',
-  vapidPublicKey,
-  vapidPrivateKey
-);
+// Load VAPID keys strictly from environment variables
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
+const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@vynora.ai';
+
+if (vapidPublicKey && vapidPrivateKey) {
+  try {
+    webpush.setVapidDetails(
+      vapidSubject,
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+  } catch (err) {
+    console.warn('[PushService] Failed to initialize VAPID details for web-push:', err);
+  }
+} else {
+  console.warn('[PushService] VAPID keys not configured in environment. Push notifications are disabled.');
+}
 
 interface PushSub {
   user: string;
@@ -32,6 +44,9 @@ export const deleteSubscription = (user: string, subString: string) => {
 };
 
 export const sendPushNotification = async (user: string, payload: any) => {
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return;
+  }
   try {
     const userSubs = subscriptionStore.filter(s => s.user === user);
     const promises = userSubs.map(async (sub) => {

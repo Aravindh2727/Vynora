@@ -4,13 +4,13 @@ const https = require('https');
 const DEPLOY_HOOKS = [
   {
     name: 'Backend Web Service (vynora-server)',
-    url: process.env.RENDER_SERVER_DEPLOY_HOOK || 'https://api.render.com/deploy/srv-db8dkbgm7kps73e0strg?key=auC7imwRoYQ'
+    url: process.env.RENDER_SERVER_DEPLOY_HOOK
   },
   {
     name: 'Frontend Static Site (vynora-client)',
-    url: process.env.RENDER_STATIC_DEPLOY_HOOK || 'https://api.render.com/deploy/srv-db8dmh7avr4c73b4fm40?key=euyoURPn7qc'
+    url: process.env.RENDER_STATIC_DEPLOY_HOOK
   }
-];
+].filter(hook => Boolean(hook.url));
 
 function triggerHook(hook) {
   return new Promise((resolve, reject) => {
@@ -43,6 +43,11 @@ async function run() {
   console.log('==============================================');
   console.log('  VYNORA RENDER AUTO-DEPLOY HOOK TRIGGER');
   console.log('==============================================\n');
+  
+  if (DEPLOY_HOOKS.length === 0) {
+    console.log('⚠️ No deploy hooks configured. Set RENDER_SERVER_DEPLOY_HOOK and/or RENDER_STATIC_DEPLOY_HOOK environment variables to trigger deployments.');
+    return;
+  }
   
   for (const hook of DEPLOY_HOOKS) {
     try {

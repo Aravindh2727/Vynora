@@ -91,7 +91,7 @@ export default function Register() {
             <img src="/vynora_logo.png" alt="Vynora Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold tracking-wider mb-2">Join Vynora</h1>
-          <p className="text-textMuted text-center text-sm">One Platform. Every Part of Life.</p>
+          <p className="text-textMuted text-center text-sm">Your Life • Organized • Smarter</p>
         </div>
 
         {authError && (

@@ -8,22 +8,22 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['vynora_logo.png'],
+      includeAssets: ['favicon.svg', 'favicon.png', 'vynora_logo.png', 'pwa-192x192.png', 'pwa-512x512.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Vynora',
         short_name: 'Vynora',
-        description: 'One Platform. Every Part of Life.',
-        theme_color: '#0f0c29',
-        background_color: '#0f0c29',
+        description: 'Your Life • Organized • Smarter',
+        theme_color: '#050b14',
+        background_color: '#050b14',
         display: 'standalone',
         icons: [
           {
-            src: 'vynora_logo.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'vynora_logo.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

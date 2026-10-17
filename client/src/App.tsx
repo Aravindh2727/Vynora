@@ -217,7 +217,7 @@ export function AppContent() {
                 className="whitespace-nowrap"
               >
                 <h1 className="text-xl font-bold tracking-wider text-textMain">Vynora</h1>
-                <p className="text-[10px] text-primary/80 font-semibold tracking-wider mt-0.5">One Platform. Every Part of Life.</p>
+                <p className="text-[10px] text-primary/80 font-semibold tracking-wider mt-0.5">Your Life • Organized • Smarter</p>
               </motion.div>
             )}
           </div>

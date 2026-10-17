@@ -37,13 +37,13 @@ import AIAssistant from './pages/AIAssistant';
 import ProtectedRoute from './components/ProtectedRoute';
 import { BottomNav } from './components/common/BottomNav';
 import { VynoraLoader } from './components/common/VynoraLoader';
+import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import LoaderPreview from './pages/LoaderPreview';
 
 export function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
-  const [prompt, setPrompt] = useState('');
   const [isPinned, setIsPinned] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme') || 'dark');
@@ -141,14 +141,6 @@ export function AppContent() {
     { path: '/goals', icon: <Target size={20} />, label: 'Goal Tracker' },
     { path: '/reports', icon: <BarChart size={20} />, label: 'Reports' },
   ];
-
-  const handleAICommand = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt) return;
-    dispatchIntent(prompt);
-    setPrompt('');
-    setCmdMenuOpen(false);
-  };
 
   const handleLogout = async () => {
     queryCache.clearAll();
@@ -313,17 +305,32 @@ export function AppContent() {
 
             {/* Desktop Search */}
             <div 
-              className="hidden md:flex items-center gap-2 px-4 py-2 glass-panel cursor-pointer text-textMuted hover:text-textMain transition-colors w-full max-w-[280px] sm:w-72 shadow-neon-primary rounded-lg"
+              className="hidden md:flex items-center gap-2 px-4 py-2 glass-panel cursor-pointer text-textMuted hover:text-textMain transition-colors w-full max-w-[280px] sm:w-72 shadow-neon-primary rounded-lg group"
               onClick={() => setCmdMenuOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setCmdMenuOpen(true); }}
+              title="Global Search across all modules and records"
             >
-              <Search size={16} className="text-primary shrink-0" />
+              <Search size={16} className="text-primary shrink-0 group-hover:scale-110 transition-transform" />
               <span className="text-sm font-medium">Search Vynora...</span>
-              <span className="ml-auto text-xs border border-glass px-1.5 py-0.5 rounded bg-surface">⌘K</span>
+              <span className="ml-auto text-xs border border-glass px-1.5 py-0.5 rounded bg-surface font-mono">
+                {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K'}
+              </span>
             </div>
           </div>
 
-          {/* Right Side: Theme toggle, notifications, profile — Crisp, consistent touch buttons */}
+          {/* Right Side: Mobile Search, Theme toggle, notifications, profile — Crisp, consistent touch buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mobile Global Search Trigger */}
+            <button 
+              onClick={() => setCmdMenuOpen(true)}
+              aria-label="Global Search"
+              className="md:hidden w-9 h-9 rounded-full glass-panel hover:text-primary transition-colors shrink-0 flex items-center justify-center text-textMuted active:scale-95"
+              title="Search Vynora"
+            >
+              <Search size={16} />
+            </button>
             {/* Theme Toggle Button */}
             <button 
               onClick={toggleTheme}
@@ -409,38 +416,14 @@ export function AppContent() {
         {/* Mobile Bottom Navigation Bar (Home, Finance, Tasks, Settings) */}
         <BottomNav />
 
-        {/* Command Menu */}
-        {cmdMenuOpen && (
-          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] p-4" onClick={() => setCmdMenuOpen(false)}>
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="w-full max-w-2xl glass-panel p-4 shadow-neon-primary"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <form onSubmit={handleAICommand} className="flex items-center gap-3 border-b border-glass pb-4 mb-4">
-                <Search className="text-primary shrink-0" size={24} />
-                <input 
-                  autoFocus
-                  type="text" 
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Search globally across expenses, crops, vehicles..." 
-                  className="bg-transparent flex-1 outline-none text-base sm:text-lg placeholder-gray-500 min-w-0"
-                />
-                <button type="button" onClick={() => setCmdMenuOpen(false)} className="text-xs text-textMuted bg-surface px-2 py-1 rounded border border-glass hover:bg-surfaceLight transition-colors">ESC</button>
-              </form>
-              <div className="text-xs text-textMuted p-2">
-                <p>Quick suggestions:</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="p-2 rounded bg-surface border border-glass flex items-center gap-2"><Pill size={14} className="text-blue-400"/> Medicine Dose</span>
-                  <span className="p-2 rounded bg-surface border border-glass flex items-center gap-2"><Car size={14} className="text-yellow-400"/> Vehicle Service</span>
-                  <span className="p-2 rounded bg-surface border border-glass flex items-center gap-2"><Tractor size={14} className="text-emerald-400"/> Farm Crops</span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
+        {/* Global Search & Command Modal */}
+        <GlobalSearchModal
+          isOpen={cmdMenuOpen}
+          onClose={() => setCmdMenuOpen(false)}
+          user={user}
+          currentTheme={currentTheme}
+          onToggleTheme={toggleTheme}
+        />
       </main>
     </div>
   );

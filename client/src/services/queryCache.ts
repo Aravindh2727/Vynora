@@ -211,6 +211,98 @@ class QueryCacheEngine {
       activeEntries: this.cache.size
     };
   }
+
+  /**
+   * Search across all in-memory cached datasets for the active user.
+   */
+  searchCachedData(searchTerm: string, userId?: string): Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    domain: string;
+    route: string;
+  }> {
+    if (!searchTerm || searchTerm.trim().length < 2) return [];
+    const term = searchTerm.toLowerCase().trim();
+    const results: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      domain: string;
+      route: string;
+    }> = [];
+
+    const prefix = userId ? `${userId}:` : '';
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (prefix && !key.startsWith(prefix)) continue;
+      if (Date.now() - entry.timestamp >= entry.ttl) continue;
+
+      const domain = key.split(':')[1] || 'general';
+      const items = Array.isArray(entry.data) ? entry.data : [];
+
+      for (const item of items) {
+        if (!item || typeof item !== 'object') continue;
+
+        const title = (
+          item.title ||
+          item.name ||
+          item.description ||
+          item.cropName ||
+          item.vehicleName ||
+          item.lender ||
+          item.borrower ||
+          item.payee ||
+          item.docName ||
+          item.subject ||
+          ''
+        ).toString();
+
+        const secondary = (
+          item.category ||
+          item.type ||
+          item.plateNumber ||
+          item.dosage ||
+          item.priority ||
+          item.notes ||
+          item.relation ||
+          ''
+        ).toString();
+
+        const amountStr = item.amount !== undefined && item.amount !== null ? `₹${item.amount}` : '';
+        const searchBlob = `${title} ${secondary} ${amountStr} ${item.vendor || ''} ${item.tag || ''}`.toLowerCase();
+
+        if (searchBlob.includes(term)) {
+          let route = '/';
+          if (domain === 'finance') route = '/finance';
+          else if (domain === 'loans') route = '/loans';
+          else if (domain === 'tasks') route = '/tasks';
+          else if (domain === 'medicine') route = '/medicine';
+          else if (domain === 'bills') route = '/bills';
+          else if (domain === 'vehicles') route = '/vehicles';
+          else if (domain === 'agriculture') route = '/agriculture';
+          else if (domain === 'dairy') route = '/dairy';
+          else if (domain === 'documents') route = '/digital-locker';
+          else if (domain === 'contacts') route = '/emergency';
+          else if (domain === 'student') route = '/student';
+          else if (domain === 'inventory') route = '/home-inventory';
+
+          results.push({
+            id: item.id || item._id || `${domain}-${results.length}-${Math.random().toString(36).substring(2, 6)}`,
+            title: title || secondary || domain.toUpperCase(),
+            subtitle: [secondary, amountStr].filter(Boolean).join(' • ') || `${domain.toUpperCase()} Record`,
+            domain,
+            route
+          });
+
+          if (results.length >= 12) break;
+        }
+      }
+      if (results.length >= 12) break;
+    }
+
+    return results;
+  }
 }
 
 // Global Singleton Instance

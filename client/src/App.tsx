@@ -267,6 +267,26 @@ export function AppContent() {
         </nav>
 
         <div className="p-3 border-t border-glass space-y-2 shrink-0">
+          {/* Downward Torch / Theme Option */}
+          <button 
+            onClick={toggleTheme}
+            className={`w-full flex items-center gap-3 text-textMuted hover:text-primary hover:bg-surface rounded-xl transition-all ${
+              isDesktopSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
+            }`}
+            title={`Torch: Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
+          >
+            {currentTheme === 'light' ? (
+              <Moon size={20} className="shrink-0 text-amber-500" />
+            ) : (
+              <Sun size={20} className="shrink-0 text-primary" />
+            )}
+            {isDesktopSidebarOpen && (
+              <span className="font-medium text-sm whitespace-nowrap flex items-center justify-between w-full">
+                <span>{currentTheme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-glass text-textMuted">Torch</span>
+              </span>
+            )}
+          </button>
           <button 
             onClick={() => navigate('/settings')}
             className={`w-full flex items-center gap-3 text-textMuted hover:text-textMain hover:bg-surface rounded-xl transition-all ${
@@ -391,6 +411,20 @@ export function AppContent() {
             </Routes>
           </AnimatePresence>
         </div>
+
+        {/* Mobile Downward Torch Button (Easily thumb-reachable across all pages) */}
+        <button
+          onClick={toggleTheme}
+          aria-label="Toggle Torch (Theme)"
+          className="md:hidden fixed bottom-[68px] right-3.5 z-40 w-11 h-11 rounded-full glass-panel border border-glass shadow-neon-primary-sm hover:border-primary/40 flex items-center justify-center text-textMuted hover:text-primary active:scale-90 transition-all bg-surface/90 backdrop-blur-md"
+          title={`Torch: Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
+        >
+          {currentTheme === 'light' ? (
+            <Moon size={18} className="text-amber-500" />
+          ) : (
+            <Sun size={18} className="text-amber-400" />
+          )}
+        </button>
 
         {/* Mobile Bottom Navigation Bar (Home, Finance, Tasks, Settings) */}
         <BottomNav />

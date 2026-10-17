@@ -5,6 +5,8 @@
  * Master keys and decrypted credentials NEVER leave client memory and are never sent to Firestore.
  */
 
+export const VAULT_VERIFICATION_TOKEN_CONSTANT = 'VYNORA_VAULT_KEY_VALID#2026';
+
 // Helper to convert Uint8Array to Base64
 function bufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
@@ -120,7 +122,75 @@ export async function decryptVaultItem(ciphertextBase64: string, key: CryptoKey)
 }
 
 /**
- * 4. Cryptographically Secure Password Generator
+ * 4. Creates an encrypted verification token to validate the Master Password on future unlocks.
+ */
+export async function createVaultVerificationToken(key: CryptoKey): Promise<string> {
+  return encryptVaultItem(VAULT_VERIFICATION_TOKEN_CONSTANT, key);
+}
+
+/**
+ * 5. Verifies if a derived CryptoKey can decrypt the verification token.
+ * Returns true ONLY if the key successfully decrypts the exact verification constant.
+ */
+export async function verifyVaultKey(verificationCipher: string, key: CryptoKey): Promise<boolean> {
+  if (!verificationCipher || !key) return false;
+  try {
+    const combined = base64ToBuffer(verificationCipher);
+    if (combined.length < 13) return false;
+
+    const iv = combined.slice(0, 12);
+    const encryptedData = combined.slice(12);
+
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedData
+    );
+
+    const decoder = new TextDecoder();
+    const result = decoder.decode(decryptedBuffer);
+    return result === VAULT_VERIFICATION_TOKEN_CONSTANT;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 6. Tests whether an AES-GCM encrypted record can be successfully decrypted by a key.
+ * Used for backwards-compatible validation of existing vault records.
+ */
+export async function testDecryptRecord(ciphertextBase64: string, key: CryptoKey): Promise<boolean> {
+  if (!ciphertextBase64 || !key) return false;
+  try {
+    const combined = base64ToBuffer(ciphertextBase64);
+    if (combined.length < 13) return false;
+
+    const iv = combined.slice(0, 12);
+    const encryptedData = combined.slice(12);
+
+    await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedData
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 7. Computes a salted SHA-256 hash of the master password for quick client-side verification
+ */
+export async function hashVaultPassword(password: string, salt: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`${password}:vynora_vault_hash:${salt}`);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  return bufferToBase64(hashBuffer);
+}
+
+/**
+ * 8. Cryptographically Secure Password Generator
  */
 export function generateSecurePassword(options: {
   length?: number;
@@ -155,7 +225,7 @@ export function generateSecurePassword(options: {
 }
 
 /**
- * 5. Secure Clipboard Copy with Auto-Clear After Specified Seconds
+ * 9. Secure Clipboard Copy with Auto-Clear After Specified Seconds
  */
 export async function copyToClipboardSecure(text: string, clearAfterSeconds: number = 30): Promise<void> {
   if (!navigator.clipboard) return;

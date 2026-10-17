@@ -5,7 +5,7 @@ self.addEventListener('push', e => {
     console.log('Push Received...');
     self.registration.showNotification(data.title, {
         body: data.body,
-        icon: '/vite.svg', // Default icon for now
+        icon: '/pwa-192x192.png',
         vibrate: [200, 100, 200, 100, 200, 100, 200],
         data: {
             url: data.url || '/'

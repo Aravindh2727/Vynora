@@ -401,20 +401,6 @@ export function AppContent() {
           </AnimatePresence>
         </div>
 
-        {/* Mobile Downward Torch Button (Easily thumb-reachable across all pages) */}
-        <button
-          onClick={toggleTheme}
-          aria-label="Toggle Torch (Theme)"
-          className="md:hidden fixed bottom-[68px] right-3.5 z-40 w-11 h-11 rounded-full glass-panel border border-glass shadow-neon-primary-sm hover:border-primary/40 flex items-center justify-center text-textMuted hover:text-primary active:scale-90 transition-all bg-surface/90 backdrop-blur-md"
-          title={`Torch: Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
-        >
-          {currentTheme === 'light' ? (
-            <Moon size={18} className="text-amber-500" />
-          ) : (
-            <Sun size={18} className="text-amber-400" />
-          )}
-        </button>
-
         {/* Mobile Bottom Navigation Bar (Home, Finance, Tasks, Settings) */}
         <BottomNav />
 

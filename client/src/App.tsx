@@ -267,25 +267,6 @@ export function AppContent() {
         </nav>
 
         <div className="p-3 border-t border-glass space-y-2 shrink-0">
-          {/* Downward Torch / Theme Option */}
-          <button 
-            onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 text-textMuted hover:text-primary hover:bg-surface rounded-xl transition-all ${
-              isDesktopSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'
-            }`}
-            title={`Torch: Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
-          >
-            {currentTheme === 'light' ? (
-              <Moon size={20} className="shrink-0 text-amber-500" />
-            ) : (
-              <Sun size={20} className="shrink-0 text-primary" />
-            )}
-            {isDesktopSidebarOpen && (
-              <span className="font-medium text-sm whitespace-nowrap">
-                {currentTheme === 'light' ? 'Dark Mode' : 'Light Mode'}
-              </span>
-            )}
-          </button>
           <button 
             onClick={() => navigate('/settings')}
             className={`w-full flex items-center gap-3 text-textMuted hover:text-textMain hover:bg-surface rounded-xl transition-all ${

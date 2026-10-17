@@ -36,6 +36,8 @@ import LoanManager from './pages/LoanManager';
 import AIAssistant from './pages/AIAssistant';
 import ProtectedRoute from './components/ProtectedRoute';
 import { BottomNav } from './components/common/BottomNav';
+import { VynoraLoader } from './components/common/VynoraLoader';
+import LoaderPreview from './pages/LoaderPreview';
 
 export function AppContent() {
   const navigate = useNavigate();
@@ -45,7 +47,16 @@ export function AppContent() {
   const [isPinned, setIsPinned] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('theme') || 'dark');
-  const { dispatchIntent, aiStatus, user, setUser, setAuthLoading } = useContextEngineStore();
+  const [initialSplashDone, setInitialSplashDone] = useState(false);
+  const { dispatchIntent, aiStatus, user, setUser, setAuthLoading, authLoading } = useContextEngineStore();
+
+  useEffect(() => {
+    // Prevent flickering during fast auth resolutions with a short minimum display duration
+    const timer = setTimeout(() => {
+      setInitialSplashDone(true);
+    }, 650);
+    return () => clearTimeout(timer);
+  }, []);
 
   const isDesktopSidebarOpen = isPinned || isHovered;
   const isDashboard = location.pathname === '/';
@@ -145,6 +156,18 @@ export function AppContent() {
     setUser(null);
     navigate('/login');
   };
+
+  // Initial application loading splash (Firebase Auth initialization & anti-flicker delay)
+  if (authLoading || !initialSplashDone) {
+    return (
+      <VynoraLoader
+        fullscreen
+        message="Loading your world..."
+        submessage="Initializing Vynora Workspace..."
+        timeoutMs={14000}
+      />
+    );
+  }
 
   if (location.pathname === '/login' || location.pathname === '/register') {
     return (
@@ -361,6 +384,7 @@ export function AppContent() {
                 <Route path="/family/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><FamilyDashboard /></motion.div>} />
                 <Route path="/reports/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><GlobalReports /></motion.div>} />
                 <Route path="/settings/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><SettingsPage /></motion.div>} />
+                <Route path="/loader-preview/*" element={<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><LoaderPreview /></motion.div>} />
 
                 <Route path="*" element={<ModulePlaceholder title="404 - Module Not Found" />} />
               </Route>

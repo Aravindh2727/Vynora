@@ -281,9 +281,8 @@ export function AppContent() {
               <Sun size={20} className="shrink-0 text-primary" />
             )}
             {isDesktopSidebarOpen && (
-              <span className="font-medium text-sm whitespace-nowrap flex items-center justify-between w-full">
-                <span>{currentTheme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-glass text-textMuted">Torch</span>
+              <span className="font-medium text-sm whitespace-nowrap">
+                {currentTheme === 'light' ? 'Dark Mode' : 'Light Mode'}
               </span>
             )}
           </button>

@@ -86,6 +86,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     }
   }, [isOpen, user]);
 
+  // Real-time synchronization: Immediately update search results when any record is edited/added/deleted
+  useEffect(() => {
+    const unsubscribe = queryCache.subscribe(() => {
+      setCacheVersion((v) => v + 1);
+    });
+    return unsubscribe;
+  }, []);
+
   // Vynora Modules Registry with rich keyword matching
   const modules: SearchItem[] = useMemo(() => [
     {

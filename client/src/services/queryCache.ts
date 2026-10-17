@@ -48,6 +48,7 @@ export const CACHE_TTL = {
 class QueryCacheEngine {
   private cache = new Map<string, CacheEntry<any>>();
   private inFlight = new Map<string, Promise<any>>();
+  private listeners = new Set<() => void>();
   private stats: CacheStats = {
     hits: 0,
     misses: 0,
@@ -55,6 +56,25 @@ class QueryCacheEngine {
     invalidations: 0,
     activeEntries: 0
   };
+
+  /**
+   * Subscribe to cache mutations (updates, inserts, deletions, background fetches).
+   * Used by Global Search and realtime components to update without reloading.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  notify(): void {
+    this.listeners.forEach((fn) => {
+      try {
+        fn();
+      } catch (err) {
+        console.error('QueryCache subscriber error:', err);
+      }
+    });
+  }
 
   /**
    * Generates a secure, user-isolated cache key.
@@ -102,6 +122,7 @@ class QueryCacheEngine {
           userId
         });
         this.stats.activeEntries = this.cache.size;
+        this.notify();
         return result;
       } finally {
         this.inFlight.delete(key);
@@ -136,6 +157,83 @@ class QueryCacheEngine {
       userId
     });
     this.stats.activeEntries = this.cache.size;
+    this.notify();
+  }
+
+  /**
+   * In-place update of an existing record across cached domain lists.
+   * Ensures instant reflection in Global Search and UI without waiting for a re-fetch.
+   */
+  updateItemInDomain(userId: string, domain: string, itemId: string, updatedFields: any): void {
+    const prefix = `${userId}:${domain}`;
+    let modified = false;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (key.startsWith(prefix) && Array.isArray(entry.data)) {
+        entry.data = entry.data.map((item: any) => {
+          const id = item?.id || item?._id;
+          if (id === itemId) {
+            modified = true;
+            return { ...item, ...updatedFields, updatedAt: new Date().toISOString() };
+          }
+          return item;
+        });
+        if (modified) {
+          entry.timestamp = Date.now();
+        }
+      }
+    }
+
+    if (modified) {
+      this.notify();
+    }
+  }
+
+  /**
+   * In-place addition of a new record across cached domain lists.
+   */
+  addItemToDomain(userId: string, domain: string, newItem: any): void {
+    const prefix = `${userId}:${domain}`;
+    let added = false;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (key.startsWith(prefix) && Array.isArray(entry.data)) {
+        const id = newItem?.id || newItem?._id;
+        const exists = entry.data.some((item: any) => (item?.id || item?._id) === id);
+        if (!exists) {
+          entry.data = [newItem, ...entry.data];
+          entry.timestamp = Date.now();
+          added = true;
+        }
+      }
+    }
+
+    if (added) {
+      this.notify();
+    }
+  }
+
+  /**
+   * In-place removal of a record from cached domain lists.
+   */
+  removeItemFromDomain(userId: string, domain: string, itemId: string): void {
+    const prefix = `${userId}:${domain}`;
+    let removed = false;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (key.startsWith(prefix) && Array.isArray(entry.data)) {
+        const initialLen = entry.data.length;
+        entry.data = entry.data.filter((item: any) => (item?.id || item?._id) !== itemId);
+        if (entry.data.length !== initialLen) {
+          entry.timestamp = Date.now();
+          removed = true;
+        }
+      }
+    }
+
+    if (removed) {
+      this.notify();
+    }
   }
 
   /**
@@ -156,6 +254,7 @@ class QueryCacheEngine {
     }
     this.stats.invalidations += count;
     this.stats.activeEntries = this.cache.size;
+    this.notify();
   }
 
   /**
@@ -178,6 +277,7 @@ class QueryCacheEngine {
     }
     this.stats.invalidations += count;
     this.stats.activeEntries = this.cache.size;
+    this.notify();
   }
 
   /**
@@ -187,6 +287,7 @@ class QueryCacheEngine {
     this.cache.clear();
     this.inFlight.clear();
     this.stats.activeEntries = 0;
+    this.notify();
   }
 
   /**

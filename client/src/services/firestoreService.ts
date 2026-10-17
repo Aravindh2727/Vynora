@@ -124,8 +124,10 @@ export const FinanceService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    const created = { ...data, _id: docRef.id, id: docRef.id, userId, amount: Number(data.amount) || 0 };
+    queryCache.addItemToDomain(userId, 'finance', created);
     invalidateDomain(userId, 'finance', ['dashboard', 'reports']);
-    return { ...data, _id: docRef.id, id: docRef.id };
+    return created;
   },
 
   async updateTransaction(id: string, data: any, userId?: string) {
@@ -136,6 +138,7 @@ export const FinanceService = {
     }
     await updateDoc(docRef, cleanPayload(updateData));
     const uid = userId || getActiveUserId();
+    queryCache.updateItemInDomain(uid, 'finance', id, data);
     invalidateDomain(uid, 'finance', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
@@ -143,6 +146,7 @@ export const FinanceService = {
   async deleteTransaction(id: string, userId?: string) {
     await deleteDoc(doc(db, 'transactions', id));
     const uid = userId || getActiveUserId();
+    queryCache.removeItemFromDomain(uid, 'finance', id);
     invalidateDomain(uid, 'finance', ['dashboard', 'reports']);
     return { message: 'Deleted' };
   },
@@ -304,14 +308,17 @@ export const LoanService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    const created = { ...data, _id: docRef.id, id: docRef.id, userId };
+    queryCache.addItemToDomain(userId, 'loans', created);
     invalidateDomain(userId, 'loans', ['dashboard', 'reports']);
-    return { ...data, _id: docRef.id, id: docRef.id };
+    return created;
   },
 
   async updateLoan(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'loans', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     const uid = userId || getActiveUserId();
+    queryCache.updateItemInDomain(uid, 'loans', id, data);
     invalidateDomain(uid, 'loans', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
@@ -325,6 +332,7 @@ export const LoanService = {
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
     const uid = userId || getActiveUserId();
+    queryCache.removeItemFromDomain(uid, 'loans', id);
     invalidateDomain(uid, 'loans', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
@@ -980,14 +988,17 @@ export const MedicineService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    const created = { ...data, _id: docRef.id, id: docRef.id, userId, isCompleted: false };
+    queryCache.addItemToDomain(userId, 'medicine', created);
     invalidateDomain(userId, 'medicine', ['dashboard']);
-    return { ...data, _id: docRef.id, id: docRef.id };
+    return created;
   },
 
   async updateMedicine(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'medicines', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     const uid = userId || getActiveUserId();
+    queryCache.updateItemInDomain(uid, 'medicine', id, data);
     invalidateDomain(uid, 'medicine', ['dashboard']);
     return { ...data, _id: id, id };
   },
@@ -995,6 +1006,7 @@ export const MedicineService = {
   async deleteMedicine(id: string, userId?: string) {
     await deleteDoc(doc(db, 'medicines', id));
     const uid = userId || getActiveUserId();
+    queryCache.removeItemFromDomain(uid, 'medicine', id);
     invalidateDomain(uid, 'medicine', ['dashboard']);
     return { message: 'Deleted' };
   },
@@ -1056,14 +1068,17 @@ export const BillService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    const created = { ...data, _id: docRef.id, id: docRef.id, userId, amount: Number(data.amount) || 0, isPaid: Boolean(data.isPaid) };
+    queryCache.addItemToDomain(userId, 'bills', created);
     invalidateDomain(userId, 'bills', ['dashboard', 'reports']);
-    return { ...data, _id: docRef.id, id: docRef.id };
+    return created;
   },
 
   async updateBill(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'bills', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     const uid = userId || getActiveUserId();
+    queryCache.updateItemInDomain(uid, 'bills', id, data);
     invalidateDomain(uid, 'bills', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
@@ -1076,6 +1091,7 @@ export const BillService = {
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
     const uid = userId || getActiveUserId();
+    queryCache.removeItemFromDomain(uid, 'bills', id);
     invalidateDomain(uid, 'bills', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },
@@ -1208,14 +1224,17 @@ export const TaskService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    const created = { ...data, _id: docRef.id, id: docRef.id, userId, isCompleted: Boolean(data.isCompleted) };
+    queryCache.addItemToDomain(userId, 'tasks', created);
     invalidateDomain(userId, 'tasks', ['dashboard', 'reports']);
-    return { ...data, _id: docRef.id, id: docRef.id };
+    return created;
   },
 
   async updateTask(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'tasks', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     const uid = userId || getActiveUserId();
+    queryCache.updateItemInDomain(uid, 'tasks', id, data);
     invalidateDomain(uid, 'tasks', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
@@ -1223,6 +1242,7 @@ export const TaskService = {
   async deleteTask(id: string, userId?: string) {
     await deleteDoc(doc(db, 'tasks', id));
     const uid = userId || getActiveUserId();
+    queryCache.removeItemFromDomain(uid, 'tasks', id);
     invalidateDomain(uid, 'tasks', ['dashboard', 'reports']);
     return { message: 'Deleted' };
   }
@@ -1249,14 +1269,17 @@ export const VehicleService = {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    const created = { ...data, _id: docRef.id, id: docRef.id, userId, logs: data.logs || [] };
+    queryCache.addItemToDomain(userId, 'vehicles', created);
     invalidateDomain(userId, 'vehicles', ['dashboard', 'reports']);
-    return { ...data, _id: docRef.id, id: docRef.id };
+    return created;
   },
 
   async updateVehicle(id: string, data: any, userId?: string) {
     const docRef = doc(db, 'vehicles', id);
     await updateDoc(docRef, cleanPayload({ ...data, updatedAt: serverTimestamp() }));
     const uid = userId || getActiveUserId();
+    queryCache.updateItemInDomain(uid, 'vehicles', id, data);
     invalidateDomain(uid, 'vehicles', ['dashboard', 'reports']);
     return { ...data, _id: id, id };
   },
@@ -1269,6 +1292,7 @@ export const VehicleService = {
     snaps.forEach(d => batch.delete(d.ref));
     await batch.commit();
     const uid = userId || getActiveUserId();
+    queryCache.removeItemFromDomain(uid, 'vehicles', id);
     invalidateDomain(uid, 'vehicles', ['finance', 'dashboard', 'reports']);
     return { message: 'Deleted' };
   },

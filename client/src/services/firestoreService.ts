@@ -2505,3 +2505,36 @@ export const UserService = {
   }
 };
 
+// ==========================================
+// 21. GLOBAL SEARCH ENGINE PREWARMER
+// ==========================================
+export const GlobalSearchService = {
+  /**
+   * Pre-fetches primary user datasets in parallel into queryCache.
+   * Enables instantaneous global search across all personal records.
+   */
+  async prewarmUserDatasets(userId?: string): Promise<void> {
+    const uid = userId || getActiveUserId();
+    if (!uid || uid === 'guest_user') return;
+
+    try {
+      await Promise.allSettled([
+        VehicleService.getVehicles(uid),
+        FinanceService.getTransactions(uid),
+        TaskService.getTasks(uid),
+        MedicineService.getMedicines(uid),
+        BillService.getBills(uid),
+        LoanService.getLoans(uid),
+        AgricultureService.getCrops(uid),
+        DairyService.getCows(uid),
+        EmergencyService.getContacts(uid),
+        DocumentService.getDocuments(uid),
+        InventoryService.getInventory(uid),
+        StudentService.getItems(uid)
+      ]);
+    } catch {
+      // Background prewarm errors are silent to avoid UI disruption
+    }
+  }
+};
+

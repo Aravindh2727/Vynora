@@ -214,6 +214,7 @@ class QueryCacheEngine {
 
   /**
    * Search across all in-memory cached datasets for the active user.
+   * Employs multi-tier matching: direct substring, normalized alphanumeric, and multi-token search.
    */
   searchCachedData(searchTerm: string, userId?: string): Array<{
     id: string;
@@ -223,7 +224,13 @@ class QueryCacheEngine {
     route: string;
   }> {
     if (!searchTerm || searchTerm.trim().length < 2) return [];
-    const term = searchTerm.toLowerCase().trim();
+
+    const rawTerm = searchTerm.toLowerCase().trim();
+    // Normalize: remove all spaces, hyphens, slashes, punctuation for fuzzy matching
+    // (e.g. "tn 87e 3902" -> "tn87e3902")
+    const normTerm = rawTerm.replace(/[^a-z0-9]/g, '');
+    const searchTokens = rawTerm.split(/\s+/).filter(Boolean);
+
     const results: Array<{
       id: string;
       title: string;
@@ -235,7 +242,10 @@ class QueryCacheEngine {
     const prefix = userId ? `${userId}:` : '';
 
     for (const [key, entry] of this.cache.entries()) {
-      if (prefix && !key.startsWith(prefix)) continue;
+      // If a userId is specified and entry has a differing userId prefix, skip
+      if (prefix && key.includes(':') && !key.startsWith(prefix) && entry.userId && entry.userId !== userId) {
+        continue;
+      }
       if (Date.now() - entry.timestamp >= entry.ttl) continue;
 
       const domain = key.split(':')[1] || 'general';
@@ -244,61 +254,111 @@ class QueryCacheEngine {
       for (const item of items) {
         if (!item || typeof item !== 'object') continue;
 
-        const title = (
-          item.title ||
-          item.name ||
-          item.description ||
-          item.cropName ||
-          item.vehicleName ||
-          item.lender ||
-          item.borrower ||
-          item.payee ||
-          item.docName ||
-          item.subject ||
-          ''
-        ).toString();
+        // Gather all text and number values from the object into a searchable pool
+        const textValues: string[] = [];
+        for (const [k, v] of Object.entries(item)) {
+          if (v !== undefined && v !== null && (typeof v === 'string' || typeof v === 'number')) {
+            textValues.push(String(v));
+          }
+        }
 
-        const secondary = (
-          item.category ||
-          item.type ||
-          item.plateNumber ||
-          item.dosage ||
-          item.priority ||
-          item.notes ||
-          item.relation ||
-          ''
-        ).toString();
+        const rawBlob = textValues.join(' ').toLowerCase();
+        const normBlob = rawBlob.replace(/[^a-z0-9]/g, '');
 
-        const amountStr = item.amount !== undefined && item.amount !== null ? `₹${item.amount}` : '';
-        const searchBlob = `${title} ${secondary} ${amountStr} ${item.vendor || ''} ${item.tag || ''}`.toLowerCase();
+        // Matching tiers:
+        // Tier 1: Direct substring in raw text
+        let isMatch = rawBlob.includes(rawTerm);
 
-        if (searchBlob.includes(term)) {
+        // Tier 2: Normalized alphanumeric match (handles spacing differences like "tn 87e 3902" vs "TN 87 E 3902")
+        if (!isMatch && normTerm.length >= 2 && normBlob.includes(normTerm)) {
+          isMatch = true;
+        }
+
+        // Tier 3: All query tokens present in item (handles multi-word queries like "honda 3902")
+        if (!isMatch && searchTokens.length > 1) {
+          const allTokensMatch = searchTokens.every(tok => {
+            const normTok = tok.replace(/[^a-z0-9]/g, '');
+            return rawBlob.includes(tok) || (normTok.length >= 2 && normBlob.includes(normTok));
+          });
+          if (allTokensMatch) isMatch = true;
+        }
+
+        if (isMatch) {
+          // Domain-specific title and route resolution
+          let title = '';
+          let subtitle = '';
           let route = '/';
-          if (domain === 'finance') route = '/finance';
-          else if (domain === 'loans') route = '/loans';
-          else if (domain === 'tasks') route = '/tasks';
-          else if (domain === 'medicine') route = '/medicine';
-          else if (domain === 'bills') route = '/bills';
-          else if (domain === 'vehicles') route = '/vehicles';
-          else if (domain === 'agriculture') route = '/agriculture';
-          else if (domain === 'dairy') route = '/dairy';
-          else if (domain === 'documents') route = '/digital-locker';
-          else if (domain === 'contacts') route = '/emergency';
-          else if (domain === 'student') route = '/student';
-          else if (domain === 'inventory') route = '/home-inventory';
+
+          if (domain === 'vehicles') {
+            title = String(item.name || item.model || 'Vehicle');
+            const plate = item.licensePlate || item.rcNumber || item.plateNumber || '';
+            const type = item.type || item.make || '';
+            subtitle = [plate, type].filter(Boolean).join(' • ') || 'Vehicle Record';
+            route = `/vehicles?vehicleId=${item.id || item._id || ''}`;
+          } else if (domain === 'finance') {
+            title = String(item.description || item.category || 'Transaction');
+            const amt = item.amount !== undefined && item.amount !== null ? `₹${item.amount}` : '';
+            subtitle = [item.category, amt, item.type].filter(Boolean).join(' • ');
+            route = '/finance';
+          } else if (domain === 'tasks') {
+            title = String(item.title || item.task || 'Task');
+            subtitle = [item.priority ? `${item.priority} priority` : '', item.category].filter(Boolean).join(' • ');
+            route = '/tasks';
+          } else if (domain === 'medicine') {
+            title = String(item.name || item.medicineName || 'Medicine');
+            subtitle = [item.dosage, item.frequency].filter(Boolean).join(' • ');
+            route = '/medicine';
+          } else if (domain === 'bills') {
+            title = String(item.title || item.name || item.payee || 'Bill');
+            const amt = item.amount !== undefined && item.amount !== null ? `₹${item.amount}` : '';
+            subtitle = [item.payee, amt, item.dueDate].filter(Boolean).join(' • ');
+            route = '/bills';
+          } else if (domain === 'loans') {
+            title = String(item.lender || item.borrower || item.title || 'Loan');
+            const amt = item.amount !== undefined && item.amount !== null ? `₹${item.amount}` : '';
+            subtitle = [item.type ? `Loan ${item.type}` : '', amt].filter(Boolean).join(' • ');
+            route = '/loans';
+          } else if (domain === 'agriculture') {
+            title = String(item.cropName || item.name || 'Crop');
+            subtitle = [item.variety, item.field, item.season].filter(Boolean).join(' • ');
+            route = '/agriculture';
+          } else if (domain === 'dairy') {
+            title = String(item.name || (item.tag ? `Cow #${item.tag}` : 'Cattle'));
+            subtitle = [item.breed, item.status].filter(Boolean).join(' • ');
+            route = '/dairy';
+          } else if (domain === 'documents') {
+            title = String(item.title || item.name || item.docName || 'Document');
+            subtitle = [item.category, item.docNumber].filter(Boolean).join(' • ');
+            route = '/digital-locker';
+          } else if (domain === 'contacts') {
+            title = String(item.name || 'Emergency Contact');
+            subtitle = [item.relation, item.phone].filter(Boolean).join(' • ');
+            route = '/emergency';
+          } else if (domain === 'inventory') {
+            title = String(item.itemName || item.name || 'Asset');
+            subtitle = [item.category, item.brand, item.room].filter(Boolean).join(' • ');
+            route = '/home-inventory';
+          } else if (domain === 'student') {
+            title = String(item.title || item.subject || 'Student Task');
+            subtitle = [item.type, item.dueDate].filter(Boolean).join(' • ');
+            route = '/student';
+          } else {
+            title = String(item.title || item.name || item.description || domain.toUpperCase());
+            subtitle = domain.toUpperCase();
+          }
 
           results.push({
             id: item.id || item._id || `${domain}-${results.length}-${Math.random().toString(36).substring(2, 6)}`,
-            title: title || secondary || domain.toUpperCase(),
-            subtitle: [secondary, amountStr].filter(Boolean).join(' • ') || `${domain.toUpperCase()} Record`,
+            title,
+            subtitle: subtitle || `${domain.toUpperCase()} Record`,
             domain,
             route
           });
 
-          if (results.length >= 12) break;
+          if (results.length >= 15) break;
         }
       }
-      if (results.length >= 12) break;
+      if (results.length >= 15) break;
     }
 
     return results;

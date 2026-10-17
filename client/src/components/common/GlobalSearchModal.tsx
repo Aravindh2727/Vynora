@@ -33,6 +33,7 @@ import {
   CornerDownLeft
 } from 'lucide-react';
 import { queryCache } from '../../services/queryCache';
+import { getActiveUserId, GlobalSearchService } from '../../services/firestoreService';
 
 export interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -68,16 +69,22 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'module' | 'action' | 'record'>('all');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [cacheVersion, setCacheVersion] = useState(0);
 
-  // Focus input automatically on open
+  // Focus input automatically on open & pre-warm user records into queryCache
   useEffect(() => {
     if (isOpen) {
       setQuery('');
       setSelectedIndex(0);
       setActiveCategory('all');
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      const activeUid = getActiveUserId(user?.id || user?.uid);
+      GlobalSearchService.prewarmUserDatasets(activeUid).then(() => {
+        setCacheVersion((v) => v + 1);
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   // Vynora Modules Registry with rich keyword matching
   const modules: SearchItem[] = useMemo(() => [
@@ -349,28 +356,62 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     }
   ], [currentTheme, onToggleTheme]);
 
+  // Domain-specific icon resolver
+  const getDomainIcon = (domain: string) => {
+    switch (domain) {
+      case 'vehicles':
+        return <Car className="text-amber-400 shrink-0" size={16} />;
+      case 'finance':
+        return <CreditCard className="text-emerald-400 shrink-0" size={16} />;
+      case 'medicine':
+        return <Pill className="text-rose-400 shrink-0" size={16} />;
+      case 'tasks':
+        return <CheckSquare className="text-purple-400 shrink-0" size={16} />;
+      case 'bills':
+        return <Receipt className="text-orange-400 shrink-0" size={16} />;
+      case 'loans':
+        return <Banknote className="text-yellow-400 shrink-0" size={16} />;
+      case 'agriculture':
+        return <Tractor className="text-emerald-500 shrink-0" size={16} />;
+      case 'dairy':
+        return <FileDigit className="text-blue-400 shrink-0" size={16} />;
+      case 'documents':
+        return <FileText className="text-cyan-400 shrink-0" size={16} />;
+      case 'contacts':
+        return <AlertTriangle className="text-red-400 shrink-0" size={16} />;
+      case 'inventory':
+        return <Box className="text-teal-400 shrink-0" size={16} />;
+      case 'student':
+        return <GraduationCap className="text-indigo-400 shrink-0" size={16} />;
+      default:
+        return <Database className="text-primary shrink-0" size={16} />;
+    }
+  };
+
   // Dynamic Cached User Data Querying
   const cachedRecords: SearchItem[] = useMemo(() => {
     if (!query || query.trim().length < 2) return [];
     try {
-      const records = queryCache.searchCachedData(query, user?.uid);
+      const activeUid = getActiveUserId(user?.id || user?.uid);
+      const records = queryCache.searchCachedData(query, activeUid);
       return records.map((rec) => ({
         id: `rec-${rec.id}`,
         type: 'record' as const,
         title: rec.title,
         subtitle: rec.subtitle,
-        icon: <Database className="text-primary shrink-0" size={16} />,
+        icon: getDomainIcon(rec.domain),
         route: rec.route,
         badge: rec.domain.toUpperCase()
       }));
     } catch {
       return [];
     }
-  }, [query, user?.uid]);
+  }, [query, user?.id, user?.uid, cacheVersion]);
 
   // Aggregate and filter results
   const filteredResults: SearchItem[] = useMemo(() => {
     const cleanQuery = query.toLowerCase().trim();
+    const normQuery = cleanQuery.replace(/[^a-z0-9]/g, '');
 
     const matchesQuery = (item: SearchItem) => {
       if (!cleanQuery) return true;
@@ -378,16 +419,22 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       if (item.subtitle.toLowerCase().includes(cleanQuery)) return true;
       if (item.badge?.toLowerCase().includes(cleanQuery)) return true;
       if (item.keywords?.some((k) => k.toLowerCase().includes(cleanQuery))) return true;
+
+      // Normalized alphanumeric matching (e.g. spaces/punctuation differences)
+      if (normQuery.length >= 2) {
+        if (item.title.toLowerCase().replace(/[^a-z0-9]/g, '').includes(normQuery)) return true;
+        if (item.keywords?.some((k) => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(normQuery))) return true;
+      }
       return false;
     };
 
     let allItems: SearchItem[] = [];
 
     if (cleanQuery) {
-      // Prioritize modules, actions, and matching user records
+      // Prioritize personal user records so plate numbers (e.g. "tn 87e 3902") appear first
       const matchedModules = modules.filter(matchesQuery);
       const matchedActions = actions.filter(matchesQuery);
-      allItems = [...matchedModules, ...matchedActions, ...cachedRecords];
+      allItems = [...cachedRecords, ...matchedModules, ...matchedActions];
     } else {
       // Default view: Top most common modules & instant actions
       allItems = [

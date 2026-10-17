@@ -38,6 +38,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { BottomNav } from './components/common/BottomNav';
 import { VynoraLoader } from './components/common/VynoraLoader';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
+import { GlobalSearchService } from './services/firestoreService';
 import LoaderPreview from './pages/LoaderPreview';
 
 export function AppContent() {
@@ -101,6 +102,7 @@ export function AppContent() {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser && firebaseUser.emailVerified) {
         setUser({ id: firebaseUser.uid, name: firebaseUser.displayName || 'User', email: firebaseUser.email || '' });
+        GlobalSearchService.prewarmUserDatasets(firebaseUser.uid);
       } else {
         queryCache.clearAll();
         setUser(null);

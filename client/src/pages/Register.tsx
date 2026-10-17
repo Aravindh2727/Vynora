@@ -87,8 +87,8 @@ export default function Register() {
         className="w-full max-w-md glass-panel p-8 relative z-10"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-full shadow-neon-primary mb-4 overflow-hidden flex items-center justify-center border border-primary/20">
-            <img src="/vynora_logo.png" alt="Vynora Logo" className="w-full h-full object-cover" />
+          <div className="w-20 h-20 rounded-full shadow-neon-primary mb-4 overflow-hidden flex items-center justify-center border border-primary/40 bg-surface">
+            <img src="/vynora_icon_circle.png" alt="Vynora Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold tracking-wider mb-2">Join Vynora</h1>
           <p className="text-textMuted text-center text-sm">Your Life • Organized • Smarter</p>

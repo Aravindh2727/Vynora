@@ -206,8 +206,8 @@ export function AppContent() {
       >
         <div className={`p-6 flex items-center shrink-0 border-b border-glass h-20 ${isDesktopSidebarOpen ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full shadow-neon-primary shrink-0 overflow-hidden flex items-center justify-center border border-primary/20">
-              <img src="/vynora_logo.png" alt="Vynora Logo" className="w-full h-full object-cover" />
+            <div className="w-8 h-8 rounded-full shadow-neon-primary shrink-0 overflow-hidden flex items-center justify-center border border-primary/30">
+              <img src="/vynora_icon_circle.png" alt="Vynora Logo" className="w-full h-full object-cover" />
             </div>
             {isDesktopSidebarOpen && (
               <motion.div 
@@ -302,8 +302,8 @@ export function AppContent() {
           <div className="flex items-center gap-3 shrink-0">
             {/* Mobile Branding (Dashboard only) — Guaranteed no overlap */}
             <div className="flex items-center gap-2.5 md:hidden shrink-0">
-              <div className="w-9 h-9 rounded-full shadow-neon-primary shrink-0 overflow-hidden border border-primary/40 p-0.5 bg-surfaceLight">
-                <img src="/vynora_logo.png" alt="Vynora" className="w-full h-full object-cover rounded-full" />
+              <div className="w-9 h-9 rounded-full shadow-neon-primary shrink-0 overflow-hidden border border-primary/40 bg-surface">
+                <img src="/vynora_icon_circle.png" alt="Vynora" className="w-full h-full object-cover" />
               </div>
               <div className="shrink-0">
                 <h1 className="text-base font-bold tracking-wide text-textMain leading-tight whitespace-nowrap">Vynora</h1>

@@ -888,7 +888,7 @@ export default function PasswordVault() {
         title="Delete Credential"
         message="Are you sure you want to delete this encrypted credential from your vault? This cannot be undone."
         confirmText="Delete"
-        confirmVariant="danger"
+        isDestructive={true}
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
       />
@@ -899,7 +899,7 @@ export default function PasswordVault() {
         title="Reset Password Vault"
         message="Because Vynora uses zero-knowledge client-side encryption, lost master passwords cannot be recovered by anyone. Resetting the vault will clear your master password and any existing credentials so you can start fresh. Are you sure you want to proceed?"
         confirmText="Reset Vault"
-        confirmVariant="danger"
+        isDestructive={true}
         onConfirm={handleResetVault}
         onCancel={() => setShowResetModal(false)}
       />

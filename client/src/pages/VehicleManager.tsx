@@ -5,7 +5,7 @@ import {
   Plus, Car, Fuel, Wrench, FileText, AlertTriangle, ShieldCheck,
   Calendar, Gauge, IndianRupee, Edit2, Trash2, CheckCircle2,
   Download, Clock, ChevronRight, Droplet, Battery, Shield, Landmark,
-  FolderOpen, BarChart3, ArrowLeft, ExternalLink, Sparkles
+  FolderOpen, BarChart3, ArrowLeft, ExternalLink, Sparkles, X
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { VehicleService, getActiveUserId } from '../services/firestoreService';
@@ -167,8 +167,8 @@ export default function VehicleManager() {
   const fetchVehicleLogs = async (vId: string) => {
     try {
       const [fLogs, sLogs] = await Promise.all([
-        VehicleService.getFuelLogs(vId),
-        VehicleService.getServiceLogs(vId)
+        VehicleService.getFuelLogs(vId, activeUid),
+        VehicleService.getServiceLogs(vId, activeUid)
       ]);
       setFuelLogs(fLogs);
       setServiceLogs(sLogs);
@@ -340,7 +340,7 @@ export default function VehicleManager() {
 
     try {
       if (editingFuelLogId) {
-        await VehicleService.updateFuelLog(vId, editingFuelLogId, {
+        await VehicleService.updateFuelLog(editingFuelLogId, {
           ...fuelFormData,
           vehicleName: selectedVehicle.name,
           odometer: odo,
@@ -348,7 +348,7 @@ export default function VehicleManager() {
           pricePerLiter: price,
           cost: computedCost,
           mileage
-        });
+        }, activeUid);
       } else {
         await VehicleService.addFuelLog(vId, {
           ...fuelFormData,
@@ -399,12 +399,12 @@ export default function VehicleManager() {
 
     try {
       if (editingServiceLogId) {
-        await VehicleService.updateServiceLog(vId, editingServiceLogId, {
+        await VehicleService.updateServiceLog(editingServiceLogId, {
           ...serviceFormData,
           vehicleName: selectedVehicle.name,
           odometer: Number(serviceFormData.odometer) || 0,
           cost: Number(serviceFormData.cost) || 0
-        });
+        }, activeUid);
       } else {
         await VehicleService.addServiceLog(vId, {
           ...serviceFormData,

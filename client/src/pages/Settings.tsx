@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Shield, Bell, Palette, Database, Key,
   Smartphone, Monitor, Mail, Lock, Trash2, Download,
-  Save, Camera, CheckCircle2, AlertTriangle, X, Check, Globe
+  Save, Camera, CheckCircle2, AlertTriangle, X, Check, Globe, Sparkles
 } from 'lucide-react';
 import { updateProfile, updatePassword, sendPasswordResetEmail, signOut, deleteUser } from 'firebase/auth';
 import { auth } from '../firebase';

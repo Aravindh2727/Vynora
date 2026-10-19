@@ -513,7 +513,11 @@ export const AgricultureService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'agriculture', `activities_${cropId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'crop_activities'), where('cropId', '==', cropId));
+      const constraints: any[] = [where('cropId', '==', cropId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'crop_activities'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -832,7 +836,11 @@ export const DairyService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'dairy', `vet_${cowId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'dairy_vet_records'), where('cowId', '==', cowId));
+      const constraints: any[] = [where('cowId', '==', cowId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'dairy_vet_records'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -908,7 +916,11 @@ export const DairyService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'dairy', `breeding_${cowId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'dairy_breeding'), where('cowId', '==', cowId));
+      const constraints: any[] = [where('cowId', '==', cowId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'dairy_breeding'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.inseminationDate || 0).getTime() - new Date(a.inseminationDate || 0).getTime());
@@ -1334,7 +1346,11 @@ export const VehicleService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'vehicles', `fuel_${vehicleId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'vehicle_fuel_logs'), where('vehicleId', '==', vehicleId));
+      const constraints: any[] = [where('vehicleId', '==', vehicleId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'vehicle_fuel_logs'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -1419,7 +1435,11 @@ export const VehicleService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'vehicles', `service_${vehicleId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'vehicle_service_logs'), where('vehicleId', '==', vehicleId));
+      const constraints: any[] = [where('vehicleId', '==', vehicleId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'vehicle_service_logs'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -1500,7 +1520,11 @@ export const VehicleService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'vehicles', `repair_${vehicleId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'vehicle_repairs'), where('vehicleId', '==', vehicleId));
+      const constraints: any[] = [where('vehicleId', '==', vehicleId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'vehicle_repairs'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -1579,7 +1603,11 @@ export const VehicleService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'vehicles', `expense_${vehicleId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'vehicle_expenses'), where('vehicleId', '==', vehicleId));
+      const constraints: any[] = [where('vehicleId', '==', vehicleId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'vehicle_expenses'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -1658,7 +1686,11 @@ export const VehicleService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'vehicles', `reminder_${vehicleId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'vehicle_reminders'), where('vehicleId', '==', vehicleId));
+      const constraints: any[] = [where('vehicleId', '==', vehicleId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'vehicle_reminders'), ...constraints);
       const snapshot = await getDocs(q);
       const items = snapshot.docs.map(snapToData);
       return items.sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime());
@@ -2226,7 +2258,11 @@ export const GoalService = {
     const uid = userId || getActiveUserId();
     const key = queryCache.makeKey(uid, 'goals', `milestones_${goalId}`);
     return queryCache.fetch(key, async () => {
-      const q = query(collection(db, 'goal_milestones'), where('goalId', '==', goalId));
+      const constraints: any[] = [where('goalId', '==', goalId)];
+      if (uid && uid !== 'guest_user') {
+        constraints.unshift(where('userId', '==', uid));
+      }
+      const q = query(collection(db, 'goal_milestones'), ...constraints);
       const snapshot = await getDocs(q);
       return snapshot.docs.map(snapToData);
     }, CACHE_TTL.GOALS, forceRefresh);
@@ -2551,7 +2587,7 @@ export const GlobalSearchService = {
         LoanService.getLoans(uid),
         AgricultureService.getCrops(uid),
         DairyService.getCows(uid),
-        EmergencyService.getContacts(uid),
+        ContactService.getContacts(uid),
         DocumentService.getDocuments(uid),
         InventoryService.getInventory(uid),
         StudentService.getItems(uid)

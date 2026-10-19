@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { calculateCropFinances } from '../utils/calculations';
-import { formatIsoDate } from '../utils/dateUtils';
+import { formatIsoDate, getTodayIso } from '../utils/dateUtils';
 import { AgricultureService, getActiveUserId } from '../services/firestoreService';
 import { exportToCSV } from '../utils/csvExport';
 import { FileUpload } from '../components/common/FileUpload';
@@ -239,10 +239,10 @@ export default function AgricultureManager() {
 
     try {
       if (editActivityId) {
-        await AgricultureService.updateCropActivity(selectedCrop._id, editActivityId, {
+        await AgricultureService.updateCropActivity(editActivityId, {
           ...activityFormData,
           cost: Number(activityFormData.cost) || 0
-        });
+        }, activeUid);
       } else {
         await AgricultureService.addCropActivity(selectedCrop._id, {
           ...activityFormData,

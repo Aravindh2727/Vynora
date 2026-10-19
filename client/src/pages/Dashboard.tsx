@@ -5,7 +5,7 @@ import {
   CheckSquare, Car, AlertTriangle, FileDigit, Landmark, ChevronRight, Plus, 
   ArrowUpRight, ArrowDownRight, HeartPulse, Sprout, CreditCard, FileText,
   Tractor, GraduationCap, Box, Key, Users, BarChart, Banknote, ShieldCheck,
-  Zap, Sparkles, Activity, Clock, RotateCw
+  Zap, Sparkles, Activity, Clock, RotateCw, Settings
 } from 'lucide-react';
 import { useContextEngineStore } from '../store/useContextEngineStore';
 import { useNavigate } from 'react-router-dom';
@@ -248,7 +248,7 @@ export default function Dashboard() {
       id: 'settings',
       title: 'Settings',
       path: '/settings',
-      icon: <Sparkles size={18} />,
+      icon: <Settings size={18} />,
       color: 'text-primary'
     }
   ];

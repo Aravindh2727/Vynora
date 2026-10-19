@@ -62,8 +62,8 @@ export default function AIChatWidget() {
             {/* Header */}
             <div className="bg-surface p-4 flex items-center justify-between border-b border-glass shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-neon-primary">
-                  <Sparkles size={16} className="text-background" />
+                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shadow-neon-primary border border-glass">
+                  <img src="/vynora_icon_circle.png" alt="Vynora AI" className="w-full h-full object-cover" />
                 </div>
                 <h3 className="font-bold tracking-wider text-textMain">Vynora AI</h3>
               </div>

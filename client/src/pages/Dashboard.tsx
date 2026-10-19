@@ -122,7 +122,7 @@ export default function Dashboard() {
       id: 'ai',
       title: 'Vynora AI',
       path: '/ai',
-      icon: <Sparkles size={18} />,
+      icon: <img src="/vynora_icon_circle.png" alt="Vynora AI" className="w-[20px] h-[20px] rounded-full object-cover shadow-sm" />,
       color: 'text-primary'
     },
     {
